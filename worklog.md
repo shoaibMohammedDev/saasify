@@ -62,3 +62,26 @@ Stage Summary:
 - Prisma client generated and verified
 - db.ts singleton pattern already in place — no changes needed
 - Schema file: prisma/schema.prisma
+---
+Task ID: 4
+Agent: Main Agent
+Task: Build complete authentication system backend
+
+Work Log:
+- Created src/types/next-auth.d.ts with JWT/session type augmentation (userId: number)
+- Created src/lib/auth.ts: NextAuth config with CredentialsProvider, JWT+session callbacks, custom signIn page
+- Created src/lib/auth-utils.ts: hashPassword, verifyPassword, getSession, getRequiredUser, requireOrgMember, requireRole, AuthError class
+- Created src/lib/permissions.ts: RBAC permission matrix with canPerform() and getPermissionsForRole()
+- Created src/app/api/auth/register/route.ts: POST handler with zod validation, bcrypt hashing, 201/400/409/500 responses
+- Created src/app/api/auth/[...nextauth]/route.ts: NextAuth handler (GET+POST)
+- Removed `output: "standalone"` from next.config.ts to fix Turbopack corruption in dev mode
+- Updated package.json dev script with inline DATABASE_URL and NEXTAUTH_SECRET
+- Verified: validation 400, duplicate 409, registration 201, CSRF 200, login via credentials callback
+
+Stage Summary:
+- Files created: auth.ts, auth-utils.ts, permissions.ts, types/next-auth.d.ts
+- API routes: POST /api/auth/register, GET+POST /api/auth/[...nextauth]
+- RBAC: 14 actions across 3 roles (OWNER has all, ADMIN has 13, MEMBER has 6)
+- Auth: CredentialsProvider with email/password, JWT strategy, bcryptjs hashing (10 salt rounds)
+- All linting passes cleanly
+- Test data cleaned from Supabase
