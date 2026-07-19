@@ -6,6 +6,7 @@ import { TopBar } from "./topbar";
 import { Footer } from "./footer";
 import { WelcomeView } from "@/components/views/welcome-view";
 import { SettingsView } from "@/components/views/settings-view";
+import { MembersView } from "@/components/views/members-view";
 
 export function AppShell() {
   const { currentView, selectedOrgId, organizations } = useAppStore();
@@ -22,6 +23,8 @@ export function AppShell() {
     switch (currentView) {
       case "settings":
         return <SettingsView />;
+      case "members":
+        return <MembersView />;
       default:
         return (
           <div className="flex items-center justify-center py-20">

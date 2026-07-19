@@ -111,3 +111,32 @@ Stage Summary:
 - App shell: Sidebar (260px) + TopBar (56px) + scrollable main + sticky footer
 - Mobile responsive: sidebar becomes Sheet overlay, hamburger menu
 - Dark mode: ThemeProvider with system default, toggle in sidebar
+
+---
+Task ID: 6
+Agent: Main Agent
+Task: Build Members management with full RBAC enforcement
+
+Work Log:
+- Fixed route conflict: renamed `[orgId]` to `[id]` to avoid "different slug names for the same dynamic path" error with existing `[id]` org CRUD routes
+- Created GET /api/organizations/[id]/members — lists members with user details, role, joinedAt, search param, pending invitations, currentUserRole
+- Created GET /api/organizations/[id]/members/[userId] — single member lookup
+- Created DELETE /api/organizations/[id]/members/[userId] — remove member (OWNER only, cannot remove self or other OWNERs, logs activity)
+- Created PUT /api/organizations/[id]/members/[userId]/role — change role (OWNER only, cannot change own role or other OWNERs, zod validates ADMIN/MEMBER only, logs activity)
+- Created GET /api/organizations/[id]/members/available?teamId=X — org members not in a team (OWNER/ADMIN, verifies team belongs to org)
+- Created useOrgPermission(action) hook — checks canPerform against current user's role in selected org via Zustand
+- Created useOrgRole() hook — returns current user's role in selected org
+- Created RoleBadge component — OWNER=primary, ADMIN=amber, MEMBER=muted, dark mode aware
+- Created ChangeRoleDialog — radio selection, demotion warning with ShieldAlert icon, loading state
+- Created RemoveMemberDialog — AlertDialog with danger-styled confirm, clear warning message
+- Created MembersView — responsive (Table on desktop, Cards on mobile), search with 300ms debounce, loading skeletons, empty state, "Invite Member" button (RBAC-gated), pending invitations section, action dropdown (Change Role + Remove) hidden for self/OWNER
+- Integrated MembersView into AppShell renderView switch
+- All lint passes cleanly
+- Server compiles and serves 200, unauth members returns 401
+
+Stage Summary:
+- Files created: 4 API routes, 1 hook, 3 components (RoleBadge, ChangeRoleDialog, RemoveMemberDialog), 1 view (MembersView)
+- Files modified: app-shell.tsx (added MembersView import + case)
+- RBAC: Every mutating API uses requireRole(["OWNER"]) + canPerform(). Frontend uses useOrgPermission() to show/hide UI elements.
+- API routes: GET members (list+search), GET member, DELETE member, PUT role, GET available
+- All 5 files lint clean. Page renders (200). Auth guard works (401 for unauthenticated).
