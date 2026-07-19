@@ -57,11 +57,25 @@ export async function GET(
     });
     const existingUserIds = new Set(existingTeamMembers.map((m) => m.userId));
 
+    // Parse optional search param
+    const search = searchParams.get("search")?.trim() || "";
+
+    // Build user filter for search
+    const userWhere = search
+      ? {
+          OR: [
+            { name: { contains: search, mode: "insensitive" as const } },
+            { email: { contains: search, mode: "insensitive" as const } },
+          ],
+        }
+      : {};
+
     // Get all org members not in this team
     const availableMembers = await db.member.findMany({
       where: {
         orgId,
         userId: { notIn: Array.from(existingUserIds) },
+        user: userWhere,
       },
       select: {
         role: true,

@@ -164,3 +164,35 @@ Stage Summary:
 - Files modified: app-store.ts (pendingInviteToken), auth-gate.tsx (invite param + useSearchParams), page.tsx (Suspense wrapper), members-view.tsx (InviteMemberDialog + enhanced invitations section)
 - Invitation flow: ?invite=TOKEN → AcceptInvitationView → if not logged in, shows login prompt with invite context → after login, page re-renders with ?invite=TOKEN still in URL → shows accept UI → POST accept → refresh orgs + navigate to dashboard
 - All lint clean. Page 200. Public invitation endpoint returns 404. Org invitation endpoints return 401.
+
+---
+Task ID: 8
+Agent: Main Agent
+Task: Build Teams CRUD with member assignment
+
+Work Log:
+- Created POST /api/organizations/[id]/teams — OWNER/ADMIN, zod validates name(1-50)+description(200), creates team, logs activity, returns 201
+- Created GET /api/organizations/[id]/teams — any org member, search param, returns teams with members(take 5)+memberCount+projectCount
+- Created GET /api/organizations/[id]/teams/[teamId] — any org member, returns team with full member list (enriched with org role via Member lookup), projects list, counts
+- Created PUT /api/organizations/[id]/teams/[teamId] — OWNER/ADMIN, zod validates name/description optional, logs activity with changes metadata
+- Created DELETE /api/organizations/[id]/teams/[teamId] — OWNER/ADMIN, sets project.teamId=null, deletes teamMembers, deletes team, logs activity
+- Created POST /api/organizations/[id]/teams/[teamId]/members — OWNER/ADMIN, validates target is org member, checks not already in team (409), creates TeamMember, logs activity
+- Created DELETE /api/organizations/[id]/teams/[teamId]/members/[userId] — OWNER/ADMIN, verifies team membership, deletes TeamMember, logs activity
+- Enhanced GET /api/organizations/[id]/members/available — added optional search param for filtering available members by name/email
+- Created CreateTeamDialog — name input (1-50, required) + description textarea (200, optional) + character counters + zod-style validation
+- Created AddTeamMemberDropdown — Popover with searchable list (300ms debounce), fetches from available members API, click-to-add with success feedback, green check animation
+- Created TeamsView — grid layout (2 cols desktop, 1 col mobile), team cards with stacked avatars (+N overflow), member/project counts, search with debounce, loading skeletons, empty state with CTA
+- Created TeamDetailView — back button + editable team name, members section with role badges + remove buttons, projects section with status badges, edit dialog, danger zone with AlertDialog for delete
+- Fixed ExclamationTriangle import (renamed to TriangleAlert in lucide-react v0.525+)
+- Integrated teams/team-detail views into app-shell.tsx renderView switch
+- All 7 API endpoints across 4 route files, all 4 frontend components, all lint clean
+
+Stage Summary:
+- Files created: 4 API route files (7 endpoints), 2 team components (CreateTeamDialog, AddTeamMemberDropdown), 2 view components (TeamsView, TeamDetailView)
+- Files modified: app-shell.tsx (TeamsView + TeamDetailView imports + cases), members/available/route.ts (search param support)
+- API endpoints: POST+GET teams, GET+PUT+DELETE team detail, POST team member, DELETE team member
+- RBAC: All mutating endpoints check canPerform("manage_teams"), listing/detail require org membership
+- Activity logging: All create/update/delete operations log to ActivityLog with action metadata
+- Team detail GET enriches TeamMember records with org Member role for RoleBadge display
+- Navigation: Clicking a team card calls selectTeam() → sets currentView to "team-detail"
+- All lint passes cleanly

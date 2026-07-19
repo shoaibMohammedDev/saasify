@@ -7,6 +7,8 @@ import { Footer } from "./footer";
 import { WelcomeView } from "@/components/views/welcome-view";
 import { SettingsView } from "@/components/views/settings-view";
 import { MembersView } from "@/components/views/members-view";
+import { TeamsView } from "@/components/views/teams-view";
+import { TeamDetailView } from "@/components/views/team-detail-view";
 
 export function AppShell() {
   const { currentView, selectedOrgId, organizations } = useAppStore();
@@ -25,6 +27,10 @@ export function AppShell() {
         return <SettingsView />;
       case "members":
         return <MembersView />;
+      case "teams":
+        return <TeamsView />;
+      case "team-detail":
+        return <TeamDetailView />;
       default:
         return (
           <div className="flex items-center justify-center py-20">
