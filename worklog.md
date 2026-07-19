@@ -291,3 +291,25 @@ Stage Summary:
 - All 7 API routes + 7 frontend components fully functional
 - Server verified: compiles clean, renders auth page, no errors
 - Full RBAC chain: create_task for all members, edit_any_task/delete_any_task for OWNER/ADMIN, MEMBER can edit own assigned tasks via API enforcement
+
+---
+Task ID: 13
+Agent: Main Agent
+Task: Build drag-and-drop Kanban board with @dnd-kit
+
+Work Log:
+- Created KanbanCard component: compact card with useSortable hook, priority-colored left border (MEDIUM=blue, HIGH=orange, URGENT=red, LOW=none), 2-line clamped title, bottom row with priority badge + due date + assignee avatar, cursor-grab/grabbing, opacity-50 while dragging, shadow+rotate+scale on DragOverlay
+- Rebuilt KanbanBoard: DndContext with PointerSensor (5px activation for touch), closestCorners collision detection, DroppableColumn wrapper using useDroppable with column-key IDs, SortableContext per column with verticalListSortingStrategy, DragOverlay with elevated card copy, 4 columns (280px each, min-width calc)
+- Drag & drop logic: handleDragStart (set activeTask), handleDragOver (detect target column from droppable ID or sortable task data), handleDragEnd (optimistic state update → PUT /api/tasks/[id] with new status → revert on API error)
+- Per-column "New Task" button: opens CreateTaskDialog with pre-filled defaultStatus matching the column
+- Added defaultStatus prop to CreateTaskDialog: pre-fills status select when opened from Kanban column
+- Per-project view preference: added projectTaskViewModes Record<number, "list"|"board"> to Zustand, setTaskViewMode accepts optional projectId, ProjectDetailView restores preference on project change
+- Drop zone visual: bg-primary/5 + ring-2 ring-primary/20 ring-inset when dragging over column, empty state text changes to "Drop here"
+- Mobile: horizontal scroll (overflow-x-auto), 280px min column width, touch-friendly PointerSensor
+
+Stage Summary:
+- Files created: kanban-card.tsx (new component)
+- Files rewritten: kanban-board.tsx (complete DnD rewrite, 215→402 lines)
+- Files modified: create-task-dialog.tsx (defaultStatus prop), app-store.ts (per-project view modes), project-detail-view.tsx (onUpdated + per-project restore)
+- Lint: 0 errors, 0 warnings
+- Server: compiles clean, returns 200

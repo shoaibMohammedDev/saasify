@@ -108,6 +108,7 @@ export function ProjectDetailView() {
     setView,
     selectTask,
     taskViewMode,
+    projectTaskViewModes,
     setTaskViewMode,
   } = useAppStore();
 
@@ -177,6 +178,13 @@ export function ProjectDetailView() {
   useEffect(() => {
     fetchProject();
   }, [fetchProject]);
+
+  // Restore per-project view mode when project changes
+  useEffect(() => {
+    if (selectedProjectId && projectTaskViewModes[selectedProjectId]) {
+      setTaskViewMode(projectTaskViewModes[selectedProjectId]);
+    }
+  }, [selectedProjectId, projectTaskViewModes, setTaskViewMode]);
 
   // Open task detail sheet when selectedTaskId changes
   useEffect(() => {
@@ -584,7 +592,7 @@ export function ProjectDetailView() {
               variant={taskViewMode === "list" ? "secondary" : "ghost"}
               size="sm"
               className="h-7 gap-1.5 text-xs px-2.5"
-              onClick={() => setTaskViewMode("list")}
+              onClick={() => setTaskViewMode("list", selectedProjectId ?? undefined)}
             >
               <List className="size-3.5" />
               List
@@ -593,7 +601,7 @@ export function ProjectDetailView() {
               variant={taskViewMode === "board" ? "secondary" : "ghost"}
               size="sm"
               className="h-7 gap-1.5 text-xs px-2.5"
-              onClick={() => setTaskViewMode("board")}
+              onClick={() => setTaskViewMode("board", selectedProjectId ?? undefined)}
             >
               <LayoutGrid className="size-3.5" />
               Board
@@ -611,6 +619,7 @@ export function ProjectDetailView() {
           <KanbanBoard
             projectId={selectedProjectId!}
             onTaskClick={handleTaskClick}
+            onUpdated={fetchProject}
           />
         )}
       </div>

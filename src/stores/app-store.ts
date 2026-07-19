@@ -42,8 +42,9 @@ interface AppState {
   // Invitation flow
   pendingInviteToken: string | null;
 
-  // Task view
+  // Task view (per-project preference: key=projectId, value=mode)
   taskViewMode: "list" | "board";
+  projectTaskViewModes: Record<number, "list" | "board">;
 
   // Actions
   setAuth: (user: User | null, isAuthenticated: boolean) => void;
@@ -56,7 +57,7 @@ interface AppState {
   setOrganizations: (orgs: OrgInfo[]) => void;
   setOrgsLoaded: (loaded: boolean) => void;
   setPendingInviteToken: (token: string | null) => void;
-  setTaskViewMode: (mode: "list" | "board") => void;
+  setTaskViewMode: (mode: "list" | "board", projectId?: number) => void;
   toggleSidebar: () => void;
   setSearchOpen: (open: boolean) => void;
 }
@@ -84,8 +85,9 @@ export const useAppStore = create<AppState>((set) => ({
   // Invitation flow
   pendingInviteToken: null,
 
-  // Task view
+  // Task view (per-project preference: key=projectId, value=mode)
   taskViewMode: "list",
+  projectTaskViewModes: {},
 
   // Actions
   setAuth: (user, isAuthenticated) =>
@@ -123,7 +125,14 @@ export const useAppStore = create<AppState>((set) => ({
 
   setPendingInviteToken: (pendingInviteToken) => set({ pendingInviteToken }),
 
-  setTaskViewMode: (taskViewMode) => set({ taskViewMode }),
+  setTaskViewMode: (taskViewMode, projectId) =>
+    set((s) => {
+      const modes = { ...s.projectTaskViewModes };
+      if (projectId !== undefined) {
+        modes[projectId] = taskViewMode;
+      }
+      return { taskViewMode, projectTaskViewModes: modes };
+    }),
 
   toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
 

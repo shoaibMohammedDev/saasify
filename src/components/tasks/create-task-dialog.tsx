@@ -50,6 +50,7 @@ interface CreateTaskDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   projectId: number;
+  defaultStatus?: string;
   onCreated?: () => void;
 }
 
@@ -73,11 +74,12 @@ export function CreateTaskDialog({
   open,
   onOpenChange,
   projectId,
+  defaultStatus = "TODO",
   onCreated,
 }: CreateTaskDialogProps) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [status, setStatus] = useState("TODO");
+  const [status, setStatus] = useState(defaultStatus);
   const [priority, setPriority] = useState("MEDIUM");
   const [assigneeId, setAssigneeId] = useState<number | null>(null);
   const [assigneeName, setAssigneeName] = useState("");
@@ -116,13 +118,15 @@ export function CreateTaskDialog({
     if (!open) {
       setTitle("");
       setDescription("");
-      setStatus("TODO");
+      setStatus(defaultStatus);
       setPriority("MEDIUM");
       setAssigneeId(null);
       setAssigneeName("");
       setDueDate("");
+    } else {
+      setStatus(defaultStatus);
     }
-  }, [open]);
+  }, [open, defaultStatus]);
 
   function validate(): string | null {
     if (!title.trim()) return "Title is required";
