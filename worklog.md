@@ -453,3 +453,50 @@ Stage Summary:
 - Integration: app-shell.tsx (SearchDialog mounted in both branches)
 - TopBar: already had search trigger (no changes needed)
 - Verified: clean lint, successful compilation (HTTP 200)
+
+---
+Task ID: 4
+Agent: Main Agent
+Task: Add real-time collaboration features using Socket.IO
+
+Work Log:
+- Created `mini-services/realtime-service/` — independent bun project with Socket.IO server on port 3005
+  - `package.json` with socket.io dependency, `index.ts` with full server logic
+  - Rooms: `org:{orgId}`, events: task:updated, task:created, task:deleted, activity:new, member:updated
+  - Presence tracking: online users per org, broadcast on connect/disconnect/join/leave
+  - Auto-leave old org rooms when joining new one
+- Created `src/lib/socket.ts` — frontend Socket.IO client singleton
+  - Typed payload interfaces: TaskUpdatedPayload, TaskCreatedPayload, TaskDeletedPayload, ActivityNewPayload, MemberUpdatedPayload, PresenceUpdatePayload
+  - connect/disconnect lifecycle with auto-rejoin on reconnect
+  - joinOrg/leaveOrg room management
+  - Emit methods for API routes to broadcast after mutations
+  - Subscribe methods returning unsubscribe functions (Set-based callback registry)
+  - Connection URL: `/?XTransformPort=3005` via Caddy gateway
+- Created `src/hooks/use-socket-connection.ts` — React hook for socket lifecycle
+  - Connects on auth, disconnects on logout
+  - Auto-joins/leaves org room when selectedOrgId changes
+- Modified `src/components/layout/app-shell.tsx` — added `useSocketConnection()` call
+- Modified `src/components/views/project-detail-view.tsx` — socket integration
+  - Listens for task:updated, task:created, task:deleted scoped to current project
+  - Refetches project data on events from OTHER users (filtered by userId !== self)
+  - Shows toast notifications: "[User] updated a task", "[User] created 'title'", "A task was deleted"
+- Modified `src/components/activity/activity-feed.tsx` — real-time activity prepend
+  - Listens for activity:new events, filters by orgId/projectId/userId/action
+  - Deduplicates by activity id
+  - Prepend new activity to top of feed
+  - Highlight animation: bg-primary/5 with 700ms transition, auto-clears after 3s
+- Modified `src/components/views/members-view.tsx` — online presence indicators
+  - Tracks onlineUserIds via presence:update events
+  - Green dot (bg-emerald-500) on avatars in both desktop table and mobile cards
+  - Clears online users when switching orgs
+- Modified `src/components/views/dashboard-view.tsx` — refetch on task events
+  - Subscribes to task:updated, task:created, task:deleted → calls fetchDashboard()
+- Modified `package.json` — added `dev:realtime` script
+- Verified: ESLint clean, no new TypeScript errors
+
+Stage Summary:
+- Socket.IO realtime service: mini-services/realtime-service (port 3005)
+- Client singleton: src/lib/socket.ts
+- Lifecycle hook: src/hooks/use-socket-connection.ts
+- 4 views integrated: ProjectDetailView, ActivityFeed, MembersView, DashboardView
+- Start command: `bun run dev:realtime` (must run alongside `bun run dev`)

@@ -22,6 +22,12 @@ import {
 
 import { useAppStore } from "@/stores/app-store";
 import { useOrgPermission } from "@/hooks/use-org-permission";
+import {
+  socketClient,
+  type TaskUpdatedPayload,
+  type TaskCreatedPayload,
+  type TaskDeletedPayload,
+} from "@/lib/socket";
 import { TaskList } from "@/components/tasks/task-list";
 import { KanbanBoard } from "@/components/tasks/kanban-board";
 import { TaskDetailSheet } from "@/components/tasks/task-detail-sheet";
@@ -101,6 +107,7 @@ function getInitials(name: string): string {
 
 export function ProjectDetailView() {
   const {
+    user,
     selectedOrgId,
     selectedProjectId,
     selectedTaskId,
@@ -178,6 +185,38 @@ export function ProjectDetailView() {
   useEffect(() => {
     fetchProject();
   }, [fetchProject]);
+
+  // ---- Socket: refetch project when tasks change in this project ----
+  useEffect(() => {
+    if (!selectedProjectId) return;
+
+    const unsubUpdate = socketClient.onTaskUpdate((data: TaskUpdatedPayload) => {
+      if (data.projectId === selectedProjectId && data.userId !== user?.id) {
+        fetchProject();
+        toast.info(`${data.userName ?? "Someone"} updated a task`);
+      }
+    });
+
+    const unsubCreate = socketClient.onTaskCreated((data: TaskCreatedPayload) => {
+      if (data.projectId === selectedProjectId && data.task?.id) {
+        fetchProject();
+        toast.info(`${data.userName ?? "Someone"} created "${data.task.title}"`);
+      }
+    });
+
+    const unsubDelete = socketClient.onTaskDeleted((data: TaskDeletedPayload) => {
+      if (data.projectId === selectedProjectId && data.userId !== user?.id) {
+        fetchProject();
+        toast.info("A task was deleted");
+      }
+    });
+
+    return () => {
+      unsubUpdate();
+      unsubCreate();
+      unsubDelete();
+    };
+  }, [selectedProjectId, user?.id, fetchProject]);
 
   // Restore per-project view mode when project changes
   useEffect(() => {

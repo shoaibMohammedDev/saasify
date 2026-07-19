@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   Plus,
   Pencil,
@@ -14,6 +14,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { socketClient, type ActivityNewPayload } from "@/lib/socket";
 import {
   getActivityIconType,
   type ActivityIconType,
@@ -172,6 +173,8 @@ export function ActivityFeed({
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(false);
   const [page, setPage] = useState(1);
+  const [highlightId, setHighlightId] = useState<number | null>(null);
+  const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const fetchActivities = useCallback(
     async (pageNum: number, append = false) => {
@@ -220,6 +223,35 @@ export function ActivityFeed({
     setPage(1);
     fetchActivities(1, false);
   }, [orgId, projectId, userId, action, fetchActivities]);
+
+  // ---- Socket: prepend new activities in real-time ----
+  useEffect(() => {
+    const unsub = socketClient.onActivityNew((data: ActivityNewPayload) => {
+      if (data.orgId !== orgId) return;
+      // If filtered to a specific projectId, only prepend if it matches
+      if (projectId !== undefined && data.activity.projectId !== projectId) return;
+      // If filtered to a specific userId, only prepend if it matches
+      if (userId !== undefined && data.activity.userId !== userId) return;
+      // If filtered to a specific action, only prepend if it matches
+      if (action && action !== "all" && data.activity.action !== action) return;
+
+      // Deduplicate: don't add if already in the list
+      setActivities((prev) => {
+        if (prev.some((a) => a.id === data.activity.id)) return prev;
+        return [data.activity as ActivityItem, ...prev];
+      });
+
+      // Highlight animation
+      setHighlightId(data.activity.id);
+      if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
+      highlightTimerRef.current = setTimeout(() => setHighlightId(null), 3000);
+    });
+
+    return () => {
+      unsub();
+      if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
+    };
+  }, [orgId, projectId, userId, action]);
 
   function handleLoadMore() {
     fetchActivities(page + 1, true);
@@ -285,7 +317,14 @@ export function ActivityFeed({
           const isLast = index === activities.length - 1;
 
           return (
-            <div key={item.id} className="relative flex gap-3 pb-6">
+            <div
+              key={item.id}
+              className={cn(
+                "relative flex gap-3 pb-6 transition-colors duration-700",
+                highlightId === item.id &&
+                  "bg-primary/5 rounded-lg px-2 -mx-2"
+              )}
+            >
               {/* Left: icon column */}
               <div className="flex flex-col items-center">
                 <div

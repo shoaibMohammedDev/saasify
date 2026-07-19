@@ -12,7 +12,8 @@
     "db:migrate": "prisma migrate dev",
     "db:reset": "prisma migrate reset",
     "db:supabase:push": "dotenv -e .env.local -- prisma db push",
-    "db:supabase:generate": "dotenv -e .env.local -- prisma generate"
+    "db:supabase:generate": "dotenv -e .env.local -- prisma generate",
+    "dev:realtime": "cd mini-services/realtime-service && bun --hot index.ts"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.2",

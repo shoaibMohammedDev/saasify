@@ -1,6 +1,7 @@
 "use client";
 
 import { useAppStore } from "@/stores/app-store";
+import { useSocketConnection } from "@/hooks/use-socket-connection";
 import { Sidebar } from "./sidebar";
 import { TopBar } from "./topbar";
 import { Footer } from "./footer";
@@ -17,6 +18,9 @@ import { SearchDialog } from "@/components/search/search-dialog";
 
 export function AppShell() {
   const { currentView, selectedOrgId, organizations } = useAppStore();
+
+  // Socket connection lifecycle (connect/disconnect, join/leave org rooms)
+  useSocketConnection();
 
   // If user has no orgs (e.g. deleted all orgs), show welcome
   const hasOrgs = organizations.length > 0 && selectedOrgId !== null;

@@ -16,6 +16,7 @@ import { format, isPast, isToday } from "date-fns";
 import { Bar, BarChart, XAxis, YAxis, Cell } from "recharts";
 
 import { useAppStore } from "@/stores/app-store";
+import { socketClient } from "@/lib/socket";
 import { cn } from "@/lib/utils";
 import {
   Card,
@@ -206,6 +207,18 @@ export function DashboardView() {
 
   useEffect(() => {
     fetchDashboard();
+  }, [fetchDashboard]);
+
+  // ---- Socket: refetch dashboard when tasks change ----
+  useEffect(() => {
+    const unsub1 = socketClient.onTaskUpdate(() => fetchDashboard());
+    const unsub2 = socketClient.onTaskCreated(() => fetchDashboard());
+    const unsub3 = socketClient.onTaskDeleted(() => fetchDashboard());
+    return () => {
+      unsub1();
+      unsub2();
+      unsub3();
+    };
   }, [fetchDashboard]);
 
   // ---- Task detail sheet ----

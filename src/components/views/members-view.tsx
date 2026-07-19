@@ -19,6 +19,7 @@ import {
 
 import { useAppStore } from "@/stores/app-store";
 import { useOrgPermission } from "@/hooks/use-org-permission";
+import { socketClient, type PresenceUpdatePayload } from "@/lib/socket";
 import { RoleBadge } from "@/components/members/role-badge";
 import { ChangeRoleDialog } from "@/components/members/change-role-dialog";
 import { RemoveMemberDialog } from "@/components/members/remove-member-dialog";
@@ -76,6 +77,7 @@ export function MembersView() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [inviteOpen, setInviteOpen] = useState(false);
+  const [onlineUserIds, setOnlineUserIds] = useState<Set<number>>(new Set());
 
   // Dialogs
   const [roleDialogMember, setRoleDialogMember] = useState<{
@@ -144,6 +146,25 @@ export function MembersView() {
     }, 300);
     return () => clearTimeout(timer);
   }, [search, fetchMembers]);
+
+  // ---- Socket: track online users ----
+  useEffect(() => {
+    const unsub = socketClient.onPresenceUpdate(
+      (data: PresenceUpdatePayload) => {
+        if (data.orgId === selectedOrgId) {
+          setOnlineUserIds(
+            new Set(data.onlineUsers.map((u) => u.userId))
+          );
+        }
+      }
+    );
+    return unsub;
+  }, [selectedOrgId]);
+
+  // Clear online users when switching orgs
+  useEffect(() => {
+    setOnlineUserIds(new Set());
+  }, [selectedOrgId]);
 
   function formatDate(dateStr: string): string {
     return new Date(dateStr).toLocaleDateString("en-US", {
@@ -293,14 +314,19 @@ export function MembersView() {
                     <TableRow key={m.id}>
                       <TableCell>
                         <div className="flex items-center gap-3">
-                          <Avatar className="size-9">
-                            <AvatarImage
-                              src={m.user.image ?? undefined}
-                            />
-                            <AvatarFallback className="text-xs">
-                              {getInitials(m.user.name)}
-                            </AvatarFallback>
-                          </Avatar>
+                          <div className="relative">
+                            <Avatar className="size-9">
+                              <AvatarImage
+                                src={m.user.image ?? undefined}
+                              />
+                              <AvatarFallback className="text-xs">
+                                {getInitials(m.user.name)}
+                              </AvatarFallback>
+                            </Avatar>
+                            {onlineUserIds.has(m.user.id) && (
+                              <span className="absolute -bottom-0.5 -right-0.5 size-3 rounded-full border-2 border-background bg-emerald-500" />
+                            )}
+                          </div>
                           <div className="min-w-0">
                             <p className="truncate text-sm font-medium">
                               {m.user.name}
@@ -387,12 +413,17 @@ export function MembersView() {
               return (
                 <Card key={m.id}>
                   <CardContent className="flex items-center gap-3 p-3">
-                    <Avatar className="size-10">
-                      <AvatarImage src={m.user.image ?? undefined} />
-                      <AvatarFallback className="text-xs">
-                        {getInitials(m.user.name)}
-                      </AvatarFallback>
-                    </Avatar>
+                    <div className="relative">
+                      <Avatar className="size-10">
+                        <AvatarImage src={m.user.image ?? undefined} />
+                        <AvatarFallback className="text-xs">
+                          {getInitials(m.user.name)}
+                        </AvatarFallback>
+                      </Avatar>
+                      {onlineUserIds.has(m.user.id) && (
+                        <span className="absolute -bottom-0.5 -right-0.5 size-3 rounded-full border-2 border-background bg-emerald-500" />
+                      )}
+                    </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
                         <p className="truncate text-sm font-medium">
