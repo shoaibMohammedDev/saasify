@@ -11,6 +11,7 @@ import { TeamsView } from "@/components/views/teams-view";
 import { TeamDetailView } from "@/components/views/team-detail-view";
 import { ProjectsView } from "@/components/views/projects-view";
 import { ProjectDetailView } from "@/components/views/project-detail-view";
+import { ActivityView } from "@/components/views/activity-view";
 
 export function AppShell() {
   const { currentView, selectedOrgId, organizations } = useAppStore();
@@ -37,6 +38,8 @@ export function AppShell() {
         return <TeamsView />;
       case "team-detail":
         return <TeamDetailView />;
+      case "activity":
+        return <ActivityView />;
       default:
         return (
           <div className="flex items-center justify-center py-20">

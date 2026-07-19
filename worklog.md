@@ -345,3 +345,41 @@ Stage Summary:
   - Sheet: 480px desktop, full-width mobile, Escape/click-outside to close (built-in)
   - Loading skeleton with realistic layout
   - No prop interface changes — backward compatible with existing integration
+---
+Task ID: 2-a
+Agent: full-stack-developer
+Task: Create ActivityFeed and ActivityView frontend components
+
+Work Log:
+- Created src/components/activity/activity-feed.tsx
+- Created src/components/views/activity-view.tsx
+- Updated src/components/layout/app-shell.tsx
+- Fixed pre-existing syntax error in src/lib/activity-descriptions.ts (unquoted dot-notation object keys)
+
+Stage Summary:
+- ActivityFeed: timeline with color-coded icons, load more, skeleton, empty state
+- ActivityView: full page with project/user/action filters
+- App-shell: added "activity" case to view switch
+---
+Task ID: 2
+Agent: main
+Task: Build activity logging and audit trail system
+
+Work Log:
+- Read existing schema (ActivityLog model), 16 API routes that already log activities, sidebar nav (activity item exists), app-shell (switch/case)
+- Created src/lib/activity.ts — logActivity() utility function
+- Created src/lib/activity-descriptions.ts — generateActivityDescription() + getActivityIconType()
+- Created src/app/api/organizations/[id]/activity/route.ts — GET endpoint with category-based filtering
+- Created src/components/activity/activity-feed.tsx — reusable timeline component
+- Created src/components/views/activity-view.tsx — full page with filters
+- Updated src/components/layout/app-shell.tsx — added "activity" case
+- Fixed route slug conflict: moved from [orgId] to [id] to match existing org route structure
+- Fixed API action filter: added category-based mapping (created/updated/deleted/comments/assignments) with Prisma contains/in operators
+- Final lint: 0 errors, 0 warnings
+
+Stage Summary:
+- 4 new files, 1 modified (app-shell.tsx)
+- Backend: logActivity utility + GET /api/organizations/[id]/activity with pagination, filtering (project/user/action), category support
+- Frontend: ActivityFeed (timeline with 9 color-coded icon types, load more, skeleton, empty state) + ActivityView (3 filter dropdowns, entity click navigation)
+- Action taxonomy documented: 25 action strings across organization/member/invitation/team/project/task
+- Route: GET /api/organizations/[id]/activity?projectId=X&userId=X&action=X&page=X&limit=X
