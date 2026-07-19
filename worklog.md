@@ -196,3 +196,28 @@ Stage Summary:
 - Team detail GET enriches TeamMember records with org Member role for RoleBadge display
 - Navigation: Clicking a team card calls selectTeam() → sets currentView to "team-detail"
 - All lint passes cleanly
+
+---
+Task ID: 9
+Agent: Main Agent
+Task: Build Projects CRUD with filtering, search, and pagination
+
+Work Log:
+- Created POST /api/organizations/[id]/projects — create_project permission, zod validates name(1-100)+description(500)+teamId(optional), validates teamId belongs to org, creates project with ACTIVE status, includes team members + creator in response, logs activity, returns 201
+- Created GET /api/organizations/[id]/projects — any org member, query params: status(ACTIVE/ARCHIVED/ALL), teamId, search, page, limit; uses task.groupBy for task stats per project; returns enriched projects with taskStats{total,done,inProgress,todo} + taskCompletion%; paginated response {projects, total, page, limit, totalPages}
+- Created GET /api/projects/[projectId] — any org member (verifies via project→orgId→membership), returns full project with team+members, creator, task stats grouped by status with totalTasks and taskCompletion%
+- Created PUT /api/projects/[projectId] — edit_project permission, zod validates name/description/teamId/status(ACTIVE|ARCHIVED), validates teamId belongs to org, separate activity log for status changes vs general updates
+- Created DELETE /api/projects/[projectId] — delete_project permission, deletes all tasks then project, logs activity
+- Created ProjectCard — clean Card with status badge (Active=emerald green, Archived=secondary), progress bar with color by completion (emerald 100%, amber 60%+, primary <60%), team member stacked avatars (max 3 +N), task count footer ("12 tasks · 5 done"), hover shadow+border
+- Created CreateProjectDialog — name input(100) + description textarea(500) + team Select dropdown (fetched from org teams, "No team" default), character counters, loading state
+- Created ProjectsView — filter bar with status tabs (All/Active/Archived) + team dropdown + search input (300ms debounce), responsive grid (3 cols desktop/2 tablet/1 mobile), pagination (prev/next buttons), loading skeleton grid (6 cards), empty state with CTA, total count display
+- Integrated "projects" case into app-shell.tsx renderView switch
+
+Stage Summary:
+- Files created: 2 API route files (5 endpoints), 2 project components (ProjectCard, CreateProjectDialog), 1 view component (ProjectsView)
+- Files modified: app-shell.tsx (ProjectsView import + case)
+- API design: org-scoped endpoints for list/create, top-level /api/projects/[id] for detail/update/delete (verifies org membership via project ownership)
+- Task stats: Efficient groupBy query for batch computation across all returned projects, computed taskCompletion percentage
+- Pagination: page/limit params with max 50, default 20, returns totalPages
+- Filtering: Status (ACTIVE/ARCHIVED/ALL), teamId, search (name+description contains)
+- All lint passes cleanly (0 errors, 0 warnings)
