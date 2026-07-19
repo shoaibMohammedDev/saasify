@@ -1,20 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useAppStore } from "@/stores/app-store";
+import { useAppStore, type OrgInfo } from "@/stores/app-store";
 import { AppShell } from "@/components/layout/app-shell";
 import { AuthPage } from "@/components/auth/auth-page";
+import { WelcomeView } from "@/components/views/welcome-view";
 import { Skeleton } from "@/components/ui/skeleton";
 
-interface SessionUser {
-  id: number;
-  name: string;
-  email: string;
-  image?: string | null;
-}
-
 export function AuthGate() {
-  const { setAuth, isAuthenticated } = useAppStore();
+  const { setAuth, setOrganizations, setOrgsLoaded, selectOrg, isAuthenticated, orgsLoaded, organizations, selectedOrgId } = useAppStore();
   const [checking, setChecking] = useState(true);
 
   useEffect(() => {
@@ -33,16 +27,30 @@ export function AuthGate() {
               },
               true
             );
+
+            // Fetch organizations after auth
+            const orgsRes = await fetch("/api/organizations");
+            if (orgsRes.ok) {
+              const orgsData = await orgsRes.json();
+              const orgs = orgsData.organizations as OrgInfo[];
+              setOrganizations(orgs);
+
+              // Auto-select first org
+              if (orgs.length > 0) {
+                selectOrg(orgs[0].id);
+              }
+            }
           }
         }
       } catch {
         // Not authenticated
       } finally {
         setChecking(false);
+        setOrgsLoaded(true);
       }
     }
     checkSession();
-  }, [setAuth]);
+  }, [setAuth, setOrganizations, setOrgsLoaded, selectOrg]);
 
   if (checking) {
     return (
@@ -56,9 +64,15 @@ export function AuthGate() {
     );
   }
 
-  if (isAuthenticated) {
-    return <AppShell />;
+  if (!isAuthenticated) {
+    return <AuthPage />;
   }
 
-  return <AuthPage />;
+  // If authenticated but no orgs, show WelcomeView directly (no shell)
+  if (orgsLoaded && organizations.length === 0) {
+    return <WelcomeView />;
+  }
+
+  // If authenticated and has orgs, show full app shell
+  return <AppShell />;
 }

@@ -9,12 +9,14 @@ interface User {
   image?: string | null;
 }
 
-interface OrgInfo {
+export interface OrgInfo {
   id: number;
   name: string;
   slug: string;
   role: string;
   logo?: string | null;
+  memberCount?: number;
+  projectCount?: number;
 }
 
 interface AppState {
@@ -35,6 +37,7 @@ interface AppState {
 
   // Org cache
   organizations: OrgInfo[];
+  orgsLoaded: boolean;
 
   // Actions
   setAuth: (user: User | null, isAuthenticated: boolean) => void;
@@ -45,6 +48,7 @@ interface AppState {
   selectTeam: (teamId: number) => void;
   selectTask: (taskId: number) => void;
   setOrganizations: (orgs: OrgInfo[]) => void;
+  setOrgsLoaded: (loaded: boolean) => void;
   toggleSidebar: () => void;
   setSearchOpen: (open: boolean) => void;
 }
@@ -67,6 +71,7 @@ export const useAppStore = create<AppState>((set) => ({
 
   // Org cache
   organizations: [],
+  orgsLoaded: false,
 
   // Actions
   setAuth: (user, isAuthenticated) =>
@@ -82,6 +87,7 @@ export const useAppStore = create<AppState>((set) => ({
       selectedTeamId: null,
       selectedTaskId: null,
       organizations: [],
+      orgsLoaded: false,
     }),
 
   setView: (view) => set({ currentView: view }),
@@ -98,6 +104,8 @@ export const useAppStore = create<AppState>((set) => ({
   selectTask: (taskId) => set({ selectedTaskId: taskId }),
 
   setOrganizations: (organizations) => set({ organizations }),
+
+  setOrgsLoaded: (orgsLoaded) => set({ orgsLoaded }),
 
   toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
 

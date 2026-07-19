@@ -1,7 +1,6 @@
 "use client";
 
 import { useTheme } from "next-themes";
-import { useRouter } from "next/navigation";
 import {
   LayoutDashboard,
   FolderKanban,
@@ -10,10 +9,8 @@ import {
   Activity,
   Settings,
   LogOut,
-  Plus,
   Sun,
   Moon,
-  ChevronDown,
   Menu,
   X,
 } from "lucide-react";
@@ -21,19 +18,11 @@ import { signOut } from "next-auth/react";
 
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/stores/app-store";
+import { OrganizationSwitcher } from "@/components/organizations/organization-switcher";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
 
 const navItems = [
@@ -47,74 +36,14 @@ const navItems = [
 
 function NavContent({ onNavigate }: { onNavigate?: () => void }) {
   const { theme, setTheme } = useTheme();
-  const {
-    user,
-    currentView,
-    selectedOrgId,
-    organizations,
-    setView,
-    selectOrg,
-    clearAuth,
-    sidebarOpen,
-    toggleSidebar,
-  } = useAppStore();
-
-  const currentOrg = organizations.find((o) => o.id === selectedOrgId);
+  const { user, currentView, setView, clearAuth, sidebarOpen, toggleSidebar } =
+    useAppStore();
 
   return (
     <div className="flex h-full flex-col">
       {/* Org Switcher */}
       <div className="p-3">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="outline"
-              className="w-full justify-between font-normal"
-            >
-              <span className="flex items-center gap-2 truncate">
-                <div className="flex size-6 shrink-0 items-center justify-center rounded-md bg-primary text-[10px] font-bold text-primary-foreground">
-                  {currentOrg?.name?.[0] ?? "S"}
-                </div>
-                <span className="truncate text-sm">
-                  {currentOrg?.name ?? "Select Organization"}
-                </span>
-              </span>
-              <ChevronDown className="size-4 shrink-0 opacity-50" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-56">
-            <DropdownMenuLabel>Organizations</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            {organizations.map((org) => (
-              <DropdownMenuItem
-                key={org.id}
-                onClick={() => {
-                  selectOrg(org.id);
-                  onNavigate?.();
-                }}
-                className={cn(
-                  "flex items-center justify-between",
-                  org.id === selectedOrgId && "bg-accent"
-                )}
-              >
-                <span className="flex items-center gap-2">
-                  <div className="flex size-5 items-center justify-center rounded bg-primary text-[10px] font-bold text-primary-foreground">
-                    {org.name[0]}
-                  </div>
-                  {org.name}
-                </span>
-                <Badge variant="secondary" className="text-[10px] capitalize">
-                  {org.role}
-                </Badge>
-              </DropdownMenuItem>
-            ))}
-            <DropdownMenuSeparator />
-            <DropdownMenuItem className="text-muted-foreground">
-              <Plus className="mr-2 size-4" />
-              Create Organization
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <OrganizationSwitcher />
       </div>
 
       <Separator />
