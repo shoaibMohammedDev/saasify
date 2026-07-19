@@ -1,32 +1,211 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
 
 generator client {
   provider = "prisma-client-js"
 }
 
-datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+// ============================
+// Enums
+// ============================
+
+enum UserRole {
+  OWNER
+  ADMIN
+  MEMBER
 }
+
+enum ProjectStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  IN_REVIEW
+  DONE
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+// ============================
+// Models
+// ============================
 
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  name      String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id           Int       @id @default(autoincrement())
+  name         String
+  email        String    @unique
+  emailVerified DateTime?
+  password     String
+  image        String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  ownedOrganizations Organization[]
+  memberships       Member[]
+  teamMemberships   TeamMember[]
+  createdProjects   Project[]     @relation("ProjectCreator")
+  assignedTasks     Task[]
+  taskCreated       Task[]      @relation("TaskCreator")
+  activityLogs      ActivityLog[]
+  sentInvitations   Invitation[] @relation("Inviter")
+
+  @@map("users")
 }
 
-model Post {
-  id        String   @id @default(cuid())
-  title     String
-  content   String?
-  published Boolean  @default(false)
-  authorId  String
+model Organization {
+  id        Int      @id @default(autoincrement())
+  name      String
+  slug      String   @unique
+  logo      String?
+  ownerId   Int
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  owner        User          @relation(fields: [ownerId], references: [id])
+  members      Member[]
+  teams        Team[]
+  projects     Project[]
+  invitations  Invitation[]
+  activityLogs ActivityLog[]
+
+  @@map("organizations")
+}
+
+model Member {
+  id       Int      @id @default(autoincrement())
+  userId   Int
+  orgId    Int
+  role     UserRole @default(MEMBER)
+  joinedAt DateTime @default(now())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  org  Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, orgId])
+  @@index([orgId])
+  @@map("members")
+}
+
+model Team {
+  id          Int      @id @default(autoincrement())
+  name        String
+  description String?
+  orgId       Int
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  org      Organization  @relation(fields: [orgId], references: [id])
+  members  TeamMember[]
+  projects Project[]
+
+  @@map("teams")
+}
+
+model TeamMember {
+  id       Int      @id @default(autoincrement())
+  teamId   Int
+  userId   Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, userId])
+  @@map("team_members")
+}
+
+model Project {
+  id          Int           @id @default(autoincrement())
+  name        String
+  description String?
+  status      ProjectStatus @default(ACTIVE)
+  orgId       Int
+  teamId      Int?
+  createdBy   Int
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  org          Organization  @relation(fields: [orgId], references: [id])
+  team         Team?         @relation(fields: [teamId], references: [id])
+  creator      User          @relation("ProjectCreator", fields: [createdBy], references: [id])
+  tasks        Task[]
+  activityLogs ActivityLog[]
+
+  @@map("projects")
+}
+
+model Task {
+  id          Int          @id @default(autoincrement())
+  title       String
+  description String?
+  status      TaskStatus   @default(TODO)
+  priority    TaskPriority @default(MEDIUM)
+  dueDate     DateTime?
+  projectId   Int
+  assigneeId  Int?
+  createdBy   Int
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  project      Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  assignee     User?         @relation(fields: [assigneeId], references: [id])
+  creator      User          @relation("TaskCreator", fields: [createdBy], references: [id])
+  activityLogs ActivityLog[]
+
+  @@index([status])
+  @@index([projectId])
+  @@map("tasks")
+}
+
+model ActivityLog {
+  id          Int      @id @default(autoincrement())
+  action      String
+  description String
+  userId      Int
+  orgId       Int
+  projectId   Int?
+  taskId      Int?
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  user    User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  org     Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  project Project?   @relation(fields: [projectId], references: [id])
+  task    Task?      @relation(fields: [taskId], references: [id])
+
+  @@index([orgId])
+  @@index([createdAt])
+  @@map("activity_logs")
+}
+
+model Invitation {
+  id         Int       @id @default(autoincrement())
+  email      String
+  orgId      Int
+  role       UserRole
+  token      String    @unique
+  invitedBy  Int
+  expiresAt  DateTime
+  acceptedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  org       Organization @relation(fields: [orgId], references: [id])
+  inviter   User         @relation("Inviter", fields: [invitedBy], references: [id])
+
+  @@index([token])
+  @@map("invitations")
 }
