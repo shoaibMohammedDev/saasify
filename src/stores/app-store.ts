@@ -42,6 +42,9 @@ interface AppState {
   // Invitation flow
   pendingInviteToken: string | null;
 
+  // Task view
+  taskViewMode: "list" | "board";
+
   // Actions
   setAuth: (user: User | null, isAuthenticated: boolean) => void;
   clearAuth: () => void;
@@ -53,6 +56,7 @@ interface AppState {
   setOrganizations: (orgs: OrgInfo[]) => void;
   setOrgsLoaded: (loaded: boolean) => void;
   setPendingInviteToken: (token: string | null) => void;
+  setTaskViewMode: (mode: "list" | "board") => void;
   toggleSidebar: () => void;
   setSearchOpen: (open: boolean) => void;
 }
@@ -79,6 +83,9 @@ export const useAppStore = create<AppState>((set) => ({
 
   // Invitation flow
   pendingInviteToken: null,
+
+  // Task view
+  taskViewMode: "list",
 
   // Actions
   setAuth: (user, isAuthenticated) =>
@@ -115,6 +122,8 @@ export const useAppStore = create<AppState>((set) => ({
   setOrgsLoaded: (orgsLoaded) => set({ orgsLoaded }),
 
   setPendingInviteToken: (pendingInviteToken) => set({ pendingInviteToken }),
+
+  setTaskViewMode: (taskViewMode) => set({ taskViewMode }),
 
   toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
 

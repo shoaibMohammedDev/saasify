@@ -10,6 +10,7 @@ import { MembersView } from "@/components/views/members-view";
 import { TeamsView } from "@/components/views/teams-view";
 import { TeamDetailView } from "@/components/views/team-detail-view";
 import { ProjectsView } from "@/components/views/projects-view";
+import { ProjectDetailView } from "@/components/views/project-detail-view";
 
 export function AppShell() {
   const { currentView, selectedOrgId, organizations } = useAppStore();
@@ -30,6 +31,8 @@ export function AppShell() {
         return <MembersView />;
       case "projects":
         return <ProjectsView />;
+      case "project-detail":
+        return <ProjectDetailView />;
       case "teams":
         return <TeamsView />;
       case "team-detail":
