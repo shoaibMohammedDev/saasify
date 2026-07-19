@@ -85,3 +85,29 @@ Stage Summary:
 - Auth: CredentialsProvider with email/password, JWT strategy, bcryptjs hashing (10 salt rounds)
 - All linting passes cleanly
 - Test data cleaned from Supabase
+
+---
+Task ID: 5
+Agent: Main Agent
+Task: Build complete app shell with auth UI
+
+Work Log:
+- Created src/stores/app-store.ts: Zustand store with auth, navigation, UI, and org cache state
+- Created src/components/layout/sidebar.tsx: Linear.app-inspired sidebar with org switcher, nav links (6 items), user info, theme toggle, logout. Desktop (260px fixed) + mobile (Sheet overlay)
+- Created src/components/layout/topbar.tsx: Breadcrumb, search (CMD+K badge), notification bell, mobile menu button. 56px height, sticky, backdrop blur
+- Created src/components/layout/footer.tsx: Simple copyright footer, sticky to bottom via mt-auto
+- Created src/components/layout/app-shell.tsx: Root layout combining Sidebar + TopBar + main + Footer in flex column
+- Created src/components/auth/auth-gate.tsx: Session check on mount, shows AppShell or AuthPage, loading skeleton
+- Created src/components/auth/auth-page.tsx: Tabbed Sign In / Create Account forms, Try Demo button, form validation, error toasts, auto-login after registration
+- Created src/components/providers.tsx: Client-side wrapper for ThemeProvider + SessionProvider
+- Updated src/app/layout.tsx: Uses Providers wrapper, updated metadata for SaaSify
+- Updated src/app/page.tsx: Renders AuthGate
+
+Stage Summary:
+- All files lint cleanly
+- Auth page renders with all elements verified via agent-browser
+- Registration API verified: 201, 400, 409
+- Login API verified: 302 redirect
+- App shell: Sidebar (260px) + TopBar (56px) + scrollable main + sticky footer
+- Mobile responsive: sidebar becomes Sheet overlay, hamburger menu
+- Dark mode: ThemeProvider with system default, toggle in sidebar
