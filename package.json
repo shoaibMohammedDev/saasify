@@ -3,14 +3,16 @@
   "version": "0.2.0",
   "private": true,
   "scripts": {
-    "dev": "next dev -p 3000 2>&1 | tee dev.log",
+    "dev": "DATABASE_URL=postgresql://postgres.aetpzyhzbidjpewaaejo:GUWGgftCoOKKx5HP@aws-0-ap-northeast-1.pooler.supabase.com:6543/postgres next dev -p 3000 2>&1 | tee dev.log",
     "build": "next build && cp -r .next/static .next/standalone/.next/ && cp -r public .next/standalone/",
     "start": "NODE_ENV=production bun .next/standalone/server.js 2>&1 | tee server.log",
     "lint": "eslint .",
     "db:push": "prisma db push",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
-    "db:reset": "prisma migrate reset"
+    "db:reset": "prisma migrate reset",
+    "db:supabase:push": "dotenv -e .env.local -- prisma db push",
+    "db:supabase:generate": "dotenv -e .env.local -- prisma generate"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
@@ -61,6 +63,7 @@
     "next-auth": "^4.24.11",
     "next-intl": "^4.3.4",
     "next-themes": "^0.4.6",
+    "pg": "^8.22.0",
     "prisma": "^6.11.1",
     "react": "^19.0.0",
     "react-day-picker": "^9.8.0",
