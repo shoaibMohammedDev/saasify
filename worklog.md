@@ -383,3 +383,35 @@ Stage Summary:
 - Frontend: ActivityFeed (timeline with 9 color-coded icon types, load more, skeleton, empty state) + ActivityView (3 filter dropdowns, entity click navigation)
 - Action taxonomy documented: 25 action strings across organization/member/invitation/team/project/task
 - Route: GET /api/organizations/[id]/activity?projectId=X&userId=X&action=X&page=X&limit=X
+---
+Task ID: Dashboard Implementation
+Agent: Main Agent
+Task: Build the main Dashboard page with statistics and charts
+
+Work Log:
+- Explored codebase: stores, app-shell, schema, auth-utils, activity-feed, chart.tsx, existing API patterns
+- Confirmed recharts already installed, chart.tsx shadcn/ui component exists
+- Created API route: GET /api/organizations/[id]/dashboard
+  - Auth + org member check (follows established pattern)
+  - 7 parallel queries: project counts, task counts (total/completed/overdue), member count, task status distribution, recent activity (8 items), my tasks (5 items, not DONE, ordered by priority desc + due date asc), project progress
+  - Post-processes project progress with per-project task stats via groupBy
+  - Returns { stats, taskDistribution, recentActivity, myTasks, projectProgress }
+- Created DashboardView component (~720 lines):
+  - 4 stat cards: Total Projects (primary), Total Tasks (sky), Team Members (violet), Completion Rate (emerald)
+  - Responsive grid: grid-cols-2 md:grid-cols-3 lg:grid-cols-4
+  - Task Distribution BarChart using recharts + shadcn ChartContainer with color-coded bars (gray/blue/amber/green)
+  - My Tasks list with priority dots, project name, due date (red if overdue), click → TaskDetailSheet
+  - Recent Activity inline timeline (renders pre-fetched data, no duplicate API call)
+  - Overdue tasks warning banner (amber, clickable → projects view)
+  - Empty state with Rocket icon + "Create Project" CTA
+  - Full loading skeleton matching the actual layout
+- Updated app-shell.tsx: added dashboard case → DashboardView
+- Cleaned unused imports (Loader2, ActivityFeed, CardAction, selectTask)
+- Lint passes clean
+- Dev server compiles successfully (HTTP 200) — Turbopack instability prevents sustained browser testing
+
+Stage Summary:
+- API: /src/app/api/organizations/[id]/dashboard/route.ts (GET)
+- Component: /src/components/views/dashboard-view.tsx
+- Integration: app-shell.tsx updated with dashboard case
+- Verified: clean lint, successful compilation

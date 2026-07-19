@@ -12,6 +12,7 @@ import { TeamDetailView } from "@/components/views/team-detail-view";
 import { ProjectsView } from "@/components/views/projects-view";
 import { ProjectDetailView } from "@/components/views/project-detail-view";
 import { ActivityView } from "@/components/views/activity-view";
+import { DashboardView } from "@/components/views/dashboard-view";
 
 export function AppShell() {
   const { currentView, selectedOrgId, organizations } = useAppStore();
@@ -40,13 +41,13 @@ export function AppShell() {
         return <TeamDetailView />;
       case "activity":
         return <ActivityView />;
+      case "dashboard":
+        return <DashboardView />;
       default:
         return (
           <div className="flex items-center justify-center py-20">
             <p className="text-sm text-muted-foreground">
-              {currentView === "dashboard"
-                ? "Dashboard content will appear here"
-                : `${currentView} view — coming soon`}
+              {`${currentView} view — coming soon`}
             </p>
           </div>
         );
