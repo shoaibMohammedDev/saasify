@@ -39,6 +39,9 @@ interface AppState {
   organizations: OrgInfo[];
   orgsLoaded: boolean;
 
+  // Invitation flow
+  pendingInviteToken: string | null;
+
   // Actions
   setAuth: (user: User | null, isAuthenticated: boolean) => void;
   clearAuth: () => void;
@@ -49,6 +52,7 @@ interface AppState {
   selectTask: (taskId: number) => void;
   setOrganizations: (orgs: OrgInfo[]) => void;
   setOrgsLoaded: (loaded: boolean) => void;
+  setPendingInviteToken: (token: string | null) => void;
   toggleSidebar: () => void;
   setSearchOpen: (open: boolean) => void;
 }
@@ -72,6 +76,9 @@ export const useAppStore = create<AppState>((set) => ({
   // Org cache
   organizations: [],
   orgsLoaded: false,
+
+  // Invitation flow
+  pendingInviteToken: null,
 
   // Actions
   setAuth: (user, isAuthenticated) =>
@@ -106,6 +113,8 @@ export const useAppStore = create<AppState>((set) => ({
   setOrganizations: (organizations) => set({ organizations }),
 
   setOrgsLoaded: (orgsLoaded) => set({ orgsLoaded }),
+
+  setPendingInviteToken: (pendingInviteToken) => set({ pendingInviteToken }),
 
   toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
 

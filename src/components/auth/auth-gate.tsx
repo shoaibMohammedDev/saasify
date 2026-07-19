@@ -1,17 +1,38 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useAppStore, type OrgInfo } from "@/stores/app-store";
 import { AppShell } from "@/components/layout/app-shell";
 import { AuthPage } from "@/components/auth/auth-page";
 import { WelcomeView } from "@/components/views/welcome-view";
+import { AcceptInvitationView } from "@/components/invitations/accept-invitation-view";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export function AuthGate() {
-  const { setAuth, setOrganizations, setOrgsLoaded, selectOrg, isAuthenticated, orgsLoaded, organizations, selectedOrgId } = useAppStore();
+  const {
+    setAuth,
+    setOrganizations,
+    setOrgsLoaded,
+    selectOrg,
+    isAuthenticated,
+    orgsLoaded,
+    organizations,
+    selectedOrgId,
+    setPendingInviteToken,
+  } = useAppStore();
+
+  const searchParams = useSearchParams();
+  const inviteToken = searchParams.get("invite");
+
   const [checking, setChecking] = useState(true);
 
   useEffect(() => {
+    // Store invite token so it persists across login
+    if (inviteToken) {
+      setPendingInviteToken(inviteToken);
+    }
+
     async function checkSession() {
       try {
         const res = await fetch("/api/auth/session");
@@ -50,7 +71,7 @@ export function AuthGate() {
       }
     }
     checkSession();
-  }, [setAuth, setOrganizations, setOrgsLoaded, selectOrg]);
+  }, [setAuth, setOrganizations, setOrgsLoaded, selectOrg, inviteToken, setPendingInviteToken]);
 
   if (checking) {
     return (
@@ -62,6 +83,12 @@ export function AuthGate() {
         </div>
       </div>
     );
+  }
+
+  // If we have an invite token, show the AcceptInvitationView
+  // It handles its own auth check internally (shows login prompt if not logged in)
+  if (inviteToken) {
+    return <AcceptInvitationView token={inviteToken} />;
   }
 
   if (!isAuthenticated) {

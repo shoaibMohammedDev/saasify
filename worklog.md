@@ -140,3 +140,27 @@ Stage Summary:
 - RBAC: Every mutating API uses requireRole(["OWNER"]) + canPerform(). Frontend uses useOrgPermission() to show/hide UI elements.
 - API routes: GET members (list+search), GET member, DELETE member, PUT role, GET available
 - All 5 files lint clean. Page renders (200). Auth guard works (401 for unauthenticated).
+
+---
+Task ID: 7
+Agent: Main Agent
+Task: Build token-based invitation system
+
+Work Log:
+- Created POST /api/organizations/[id]/invitations — OWNER/ADMIN, validates email not already member/pending, generates crypto.randomUUID() token, 7-day expiry, logs activity, returns invitation with token
+- Created GET /api/organizations/[id]/invitations — any org member, returns pending non-expired invitations with inviter name
+- Created DELETE /api/organizations/[id]/invitations/[invId] — OWNER/ADMIN, deletes invitation, logs cancellation
+- Created GET /api/invitations/[token] — PUBLIC (no auth), returns 404/410/410 for not-found/expired/accepted, returns org details if valid
+- Created POST /api/invitations/[token]/accept — auth required, validates token + email match, creates Member + marks accepted in transaction, logs activity, returns orgId/orgName
+- Added pendingInviteToken to Zustand store
+- Wrapped page.tsx AuthGate with Suspense (required for useSearchParams)
+- Updated AuthGate to detect ?invite=TOKEN from URL via useSearchParams and render AcceptInvitationView
+- Created InviteMemberDialog: email input + role radio (Admin/Member) → submit → shows invite link with copy button + "Copied!" feedback
+- Created AcceptInvitationView: checks token on mount, shows valid/expired/accepted/not_found states, "Accept" button for logged-in matching email, login prompt for unauthenticated users, email mismatch warning
+- Updated MembersView: InviteMemberDialog wired to "Invite Member" button, invitations table (desktop) and cards (mobile) with Copy Link + Cancel actions, fetches invitations from dedicated endpoint, empty invitation state
+
+Stage Summary:
+- Files created: 5 API routes, 2 components (InviteMemberDialog, AcceptInvitationView)
+- Files modified: app-store.ts (pendingInviteToken), auth-gate.tsx (invite param + useSearchParams), page.tsx (Suspense wrapper), members-view.tsx (InviteMemberDialog + enhanced invitations section)
+- Invitation flow: ?invite=TOKEN → AcceptInvitationView → if not logged in, shows login prompt with invite context → after login, page re-renders with ?invite=TOKEN still in URL → shows accept UI → POST accept → refresh orgs + navigate to dashboard
+- All lint clean. Page 200. Public invitation endpoint returns 404. Org invitation endpoints return 401.

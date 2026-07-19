@@ -12,6 +12,9 @@ import {
   Clock,
   Loader2,
   Users,
+  Copy,
+  Check,
+  Link,
 } from "lucide-react";
 
 import { useAppStore } from "@/stores/app-store";
@@ -19,6 +22,7 @@ import { useOrgPermission } from "@/hooks/use-org-permission";
 import { RoleBadge } from "@/components/members/role-badge";
 import { ChangeRoleDialog } from "@/components/members/change-role-dialog";
 import { RemoveMemberDialog } from "@/components/members/remove-member-dialog";
+import { InviteMemberDialog } from "@/components/invitations/invite-member-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -56,6 +60,7 @@ interface InvitationData {
   id: number;
   email: string;
   role: string;
+  token: string;
   inviterName: string;
   expiresAt: string;
   createdAt: string;
@@ -67,10 +72,10 @@ export function MembersView() {
   const canChangeRoles = useOrgPermission("change_roles");
 
   const [members, setMembers] = useState<MemberData[]>([]);
-  const [currentUserRole, setCurrentUserRole] = useState<string | null>(null);
   const [invitations, setInvitations] = useState<InvitationData[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [inviteOpen, setInviteOpen] = useState(false);
 
   // Dialogs
   const [roleDialogMember, setRoleDialogMember] = useState<{
@@ -84,34 +89,53 @@ export function MembersView() {
     role: string;
   } | null>(null);
 
-  const fetchMembers = useCallback(async (searchQuery?: string) => {
+  const fetchMembers = useCallback(
+    async (searchQuery?: string) => {
+      if (!selectedOrgId) return;
+      setLoading(true);
+
+      try {
+        const url = searchQuery
+          ? `/api/organizations/${selectedOrgId}/members?search=${encodeURIComponent(searchQuery)}`
+          : `/api/organizations/${selectedOrgId}/members`;
+
+        const res = await fetch(url);
+        if (res.ok) {
+          const data = await res.json();
+          setMembers(data.members);
+          setInvitations(data.invitations ?? []);
+        } else {
+          toast.error("Failed to load members");
+        }
+      } catch {
+        toast.error("Something went wrong");
+      } finally {
+        setLoading(false);
+      }
+    },
+    [selectedOrgId]
+  );
+
+  // Also fetch invitations separately (the members endpoint only returns a subset)
+  const fetchInvitations = useCallback(async () => {
     if (!selectedOrgId) return;
-    setLoading(true);
-
     try {
-      const url = searchQuery
-        ? `/api/organizations/${selectedOrgId}/members?search=${encodeURIComponent(searchQuery)}`
-        : `/api/organizations/${selectedOrgId}/members`;
-
-      const res = await fetch(url);
+      const res = await fetch(
+        `/api/organizations/${selectedOrgId}/invitations`
+      );
       if (res.ok) {
         const data = await res.json();
-        setMembers(data.members);
-        setCurrentUserRole(data.currentUserRole);
         setInvitations(data.invitations ?? []);
-      } else {
-        toast.error("Failed to load members");
       }
     } catch {
-      toast.error("Something went wrong");
-    } finally {
-      setLoading(false);
+      // Silently fail — invitations section is supplementary
     }
   }, [selectedOrgId]);
 
   useEffect(() => {
     fetchMembers();
-  }, [fetchMembers]);
+    fetchInvitations();
+  }, [fetchMembers, fetchInvitations]);
 
   // Debounced search
   useEffect(() => {
@@ -138,9 +162,40 @@ export function MembersView() {
       .slice(0, 2);
   }
 
-  // Filtered members for display (search is server-side, but this is a safety net)
-  const displayMembers = members;
-  const displayInvitations = invitations;
+  async function handleCancelInvitation(inv: InvitationData) {
+    if (!selectedOrgId) return;
+
+    try {
+      const res = await fetch(
+        `/api/organizations/${selectedOrgId}/invitations/${inv.id}`,
+        { method: "DELETE" }
+      );
+
+      if (res.ok) {
+        toast.success(`Invitation to ${inv.email} cancelled`);
+        fetchInvitations();
+        fetchMembers();
+      } else {
+        const data = await res.json();
+        toast.error(data.error || "Failed to cancel invitation");
+      }
+    } catch {
+      toast.error("Something went wrong");
+    }
+  }
+
+  async function handleCopyLink(inv: InvitationData) {
+    const appUrl =
+      typeof window !== "undefined" ? window.location.origin : "";
+    const link = `${appUrl}/?invite=${inv.token}`;
+
+    try {
+      await navigator.clipboard.writeText(link);
+      toast.success("Invite link copied to clipboard");
+    } catch {
+      toast.error("Failed to copy link");
+    }
+  }
 
   if (!selectedOrgId) {
     return (
@@ -163,7 +218,10 @@ export function MembersView() {
           </p>
         </div>
         {canManageMembers && (
-          <Button className="gap-2 self-start">
+          <Button
+            className="gap-2 self-start"
+            onClick={() => setInviteOpen(true)}
+          >
             <UserPlus className="size-4" />
             Invite Member
           </Button>
@@ -198,7 +256,7 @@ export function MembersView() {
             </div>
           ))}
         </div>
-      ) : displayMembers.length === 0 ? (
+      ) : members.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
             <Users className="mb-3 size-10 text-muted-foreground/50" />
@@ -226,7 +284,7 @@ export function MembersView() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {displayMembers.map((m) => {
+                {members.map((m) => {
                   const isSelf = user?.id === m.user.id;
                   const isOwner = m.role === "OWNER";
                   const canAct = canManageMembers && !isSelf && !isOwner;
@@ -321,7 +379,7 @@ export function MembersView() {
 
           {/* Mobile: Cards */}
           <div className="space-y-2 md:hidden">
-            {displayMembers.map((m) => {
+            {members.map((m) => {
               const isSelf = user?.id === m.user.id;
               const isOwner = m.role === "OWNER";
               const canAct = canManageMembers && !isSelf && !isOwner;
@@ -403,16 +461,79 @@ export function MembersView() {
       )}
 
       {/* Pending Invitations */}
-      {!loading && displayInvitations.length > 0 && (
+      {!loading && invitations.length > 0 && (
         <div className="space-y-3 pt-4">
           <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-            Pending Invitations ({displayInvitations.length})
+            Pending Invitations ({invitations.length})
           </h2>
-          <div className="space-y-2">
-            {displayInvitations.map((inv) => (
+
+          {/* Desktop: Table */}
+          <div className="hidden rounded-lg border md:block">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Role</TableHead>
+                  <TableHead>Invited By</TableHead>
+                  <TableHead className="hidden sm:table-cell">Expires</TableHead>
+                  <TableHead className="w-[100px]">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {invitations.map((inv) => (
+                  <TableRow key={inv.id}>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <Mail className="size-4 text-muted-foreground" />
+                        <span className="text-sm">{inv.email}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <RoleBadge role={inv.role} />
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {inv.inviterName}
+                    </TableCell>
+                    <TableCell className="hidden text-xs text-muted-foreground sm:table-cell">
+                      <span className="flex items-center gap-1">
+                        <Clock className="size-3" />
+                        {formatDate(inv.expiresAt)}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 gap-1 text-xs"
+                          onClick={() => handleCopyLink(inv)}
+                        >
+                          <Copy className="size-3" />
+                          <span className="hidden sm:inline">Copy</span>
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 gap-1 text-xs text-destructive hover:text-destructive"
+                          onClick={() => handleCancelInvitation(inv)}
+                        >
+                          <Trash2 className="size-3" />
+                          <span className="hidden sm:inline">Cancel</span>
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+
+          {/* Mobile: Cards */}
+          <div className="space-y-2 md:hidden">
+            {invitations.map((inv) => (
               <Card key={inv.id} className="border-dashed">
                 <CardContent className="flex items-center gap-3 p-3">
-                  <div className="flex size-10 items-center justify-center rounded-full bg-muted">
+                  <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-muted">
                     <Mail className="size-4 text-muted-foreground" />
                   </div>
                   <div className="min-w-0 flex-1">
@@ -420,15 +541,35 @@ export function MembersView() {
                       {inv.email}
                     </p>
                     <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <span>Invited by {inv.inviterName}</span>
+                      <span>{inv.inviterName}</span>
                       <span>·</span>
                       <span className="flex items-center gap-1">
                         <Clock className="size-3" />
-                        Expires {formatDate(inv.expiresAt)}
+                        {formatDate(inv.expiresAt)}
                       </span>
                     </div>
                   </div>
-                  <RoleBadge role={inv.role} />
+                  <div className="flex shrink-0 flex-col gap-1">
+                    <RoleBadge role={inv.role} />
+                  </div>
+                  <div className="flex shrink-0 flex-col gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="size-7"
+                      onClick={() => handleCopyLink(inv)}
+                    >
+                      <Link className="size-3" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="size-7 text-destructive hover:text-destructive"
+                      onClick={() => handleCancelInvitation(inv)}
+                    >
+                      <Trash2 className="size-3" />
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
             ))}
@@ -436,7 +577,30 @@ export function MembersView() {
         </div>
       )}
 
+      {/* No invitations empty state */}
+      {!loading && invitations.length === 0 && canManageMembers && (
+        <div className="rounded-lg border border-dashed p-6 text-center">
+          <Mail className="mx-auto mb-2 size-8 text-muted-foreground/40" />
+          <p className="text-sm text-muted-foreground">
+            No pending invitations
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Click &quot;Invite Member&quot; to send your first invitation.
+          </p>
+        </div>
+      )}
+
       {/* Dialogs */}
+      <InviteMemberDialog
+        open={inviteOpen}
+        onOpenChange={setInviteOpen}
+        orgId={selectedOrgId}
+        onInvited={() => {
+          fetchInvitations();
+          setInviteOpen(false);
+        }}
+      />
+
       <ChangeRoleDialog
         open={!!roleDialogMember}
         onOpenChange={(open) => !open && setRoleDialogMember(null)}
