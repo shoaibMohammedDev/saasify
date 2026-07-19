@@ -1,0 +1,1135 @@
+     1→"use client";
+     2→
+     3→import { useState, useEffect, useCallback, useRef } from "react";
+     4→import { toast } from "sonner";
+     5→import {
+     6→  Loader2,
+     7→  Trash2,
+     8→  MessageSquare,
+     9→  Calendar,
+    10→  User as UserIcon,
+    11→  FolderKanban,
+    12→  Check,
+    13→  ChevronsUpDown,
+    14→} from "lucide-react";
+    15→
+    16→import { useOrgPermission } from "@/hooks/use-org-permission";
+    17→import { Button } from "@/components/ui/button";
+    18→import { Input } from "@/components/ui/input";
+    19→import { Textarea } from "@/components/ui/textarea";
+    20→import { Skeleton } from "@/components/ui/skeleton";
+    21→import { Separator } from "@/components/ui/separator";
+    22→import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+    23→import { Label } from "@/components/ui/label";
+    24→import {
+    25→  Sheet,
+    26→  SheetContent,
+    27→} from "@/components/ui/sheet";
+    28→import {
+    29→  Popover,
+    30→  PopoverContent,
+    31→  PopoverTrigger,
+    32→} from "@/components/ui/popover";
+    33→import {
+    34→  Command,
+    35→  CommandEmpty,
+    36→  CommandGroup,
+    37→  CommandInput,
+    38→  CommandItem,
+    39→  CommandList,
+    40→} from "@/components/ui/command";
+    41→import { Calendar as CalendarUI } from "@/components/ui/calendar";
+    42→import {
+    43→  AlertDialog,
+    44→  AlertDialogAction,
+    45→  AlertDialogCancel,
+    46→  AlertDialogContent,
+    47→  AlertDialogDescription,
+    48→  AlertDialogFooter,
+    49→  AlertDialogHeader,
+    50→  AlertDialogTitle,
+    51→} from "@/components/ui/alert-dialog";
+    52→
+    53→// ---------------------------------------------------------------------------
+    54→// Types
+    55→// ---------------------------------------------------------------------------
+    56→
+    57→interface Comment {
+    58→  id: number;
+    59→  description: string;
+    60→  createdAt: string;
+    61→  user: {
+    62→    id: number;
+    63→    name: string;
+    64→    image?: string | null;
+    65→  };
+    66→}
+    67→
+    68→interface TaskDetail {
+    69→  id: number;
+    70→  title: string;
+    71→  description?: string | null;
+    72→  status: string;
+    73→  priority: string;
+    74→  dueDate?: string | null;
+    75→  createdAt: string;
+    76→  updatedAt: string;
+    77→  projectId: number;
+    78→  project?: {
+    79→    id: number;
+    80→    name: string;
+    81→  };
+    82→  assignee?: {
+    83→    id: number;
+    84→    name: string;
+    85→    image?: string | null;
+    86→  } | null;
+    87→  creator: {
+    88→    id: number;
+    89→    name: string;
+    90→    image?: string | null;
+    91→  };
+    92→}
+    93→
+    94→interface TeamMember {
+    95→  user: {
+    96→    id: number;
+    97→    name: string;
+    98→    image?: string | null;
+    99→  };
+   100→}
+   101→
+   102→interface TaskDetailSheetProps {
+   103→  taskId: number | null;
+   104→  open: boolean;
+   105→  onOpenChange: (open: boolean) => void;
+   106→  onUpdate?: () => void;
+   107→  onDelete?: () => void;
+   108→}
+   109→
+   110→// ---------------------------------------------------------------------------
+   111→// Helpers
+   112→// ---------------------------------------------------------------------------
+   113→
+   114→function getInitials(name: string): string {
+   115→  return name
+   116→    .split(" ")
+   117→    .map((n) => n[0])
+   118→    .join("")
+   119→    .toUpperCase()
+   120→    .slice(0, 2);
+   121→}
+   122→
+   123→function formatRelativeTime(dateStr: string): string {
+   124→  const now = new Date();
+   125→  const date = new Date(dateStr);
+   126→  const diffMs = now.getTime() - date.getTime();
+   127→  const diffSec = Math.floor(diffMs / 1000);
+   128→  const diffMin = Math.floor(diffSec / 60);
+   129→  const diffHr = Math.floor(diffMin / 60);
+   130→  const diffDay = Math.floor(diffHr / 24);
+   131→
+   132→  if (diffSec < 60) return "just now";
+   133→  if (diffMin < 60) return `${diffMin}m ago`;
+   134→  if (diffHr < 24) return `${diffHr}h ago`;
+   135→  if (diffDay < 7) return `${diffDay}d ago`;
+   136→
+   137→  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+   138→}
+   139→
+   140→function formatDate(dateStr: string): string {
+   141→  return new Date(dateStr).toLocaleDateString("en-US", {
+   142→    month: "long",
+   143→    day: "numeric",
+   144→    year: "numeric",
+   145→  });
+   146→}
+   147→
+   148→function isOverdue(dateStr: string, status: string): boolean {
+   149→  if (status === "DONE") return false;
+   150→  const date = new Date(dateStr);
+   151→  const today = new Date();
+   152→  today.setHours(0, 0, 0, 0);
+   153→  const target = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+   154→  return target < today;
+   155→}
+   156→
+   157→// ---------------------------------------------------------------------------
+   158→// Configs
+   159→// ---------------------------------------------------------------------------
+   160→
+   161→const statusOptions = [
+   162→  { value: "TODO", label: "To Do", color: "bg-secondary text-secondary-foreground" },
+   163→  { value: "IN_PROGRESS", label: "In Progress", color: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" },
+   164→  { value: "IN_REVIEW", label: "In Review", color: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400" },
+   165→  { value: "DONE", label: "Done", color: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400" },
+   166→];
+   167→
+   168→const priorityOptions = [
+   169→  { value: "LOW", label: "Low", dotColor: "bg-muted-foreground/50", color: "bg-secondary text-secondary-foreground" },
+   170→  { value: "MEDIUM", label: "Medium", dotColor: "bg-blue-500", color: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" },
+   171→  { value: "HIGH", label: "High", dotColor: "bg-amber-500", color: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400" },
+   172→  { value: "URGENT", label: "Urgent", dotColor: "bg-red-500", color: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400" },
+   173→];
+   174→
+   175→// ---------------------------------------------------------------------------
+   176→// Component
+   177→// ---------------------------------------------------------------------------
+   178→
+   179→export function TaskDetailSheet({
+   180→  taskId,
+   181→  open,
+   182→  onOpenChange,
+   183→  onUpdate,
+   184→  onDelete,
+   185→}: TaskDetailSheetProps) {
+   186→  const canEdit = useOrgPermission("create_task");
+   187→  const canDelete = useOrgPermission("delete_any_task");
+   188→
+   189→  // ---- Task data ----
+   190→  const [task, setTask] = useState<TaskDetail | null>(null);
+   191→  const [comments, setComments] = useState<Comment[]>([]);
+   192→  const [loading, setLoading] = useState(false);
+   193→  const [notFound, setNotFound] = useState(false);
+   194→
+   195→  // ---- Edit states ----
+   196→  const [editingTitle, setEditingTitle] = useState(false);
+   197→  const [editTitleValue, setEditTitleValue] = useState("");
+   198→  const [descriptionValue, setDescriptionValue] = useState("");
+   199→  const [descriptionDirty, setDescriptionDirty] = useState(false);
+   200→
+   201→  // ---- Field update loading ----
+   202→  const [updatingField, setUpdatingField] = useState<string | null>(null);
+   203→
+   204→  // ---- Status / Priority popover ----
+   205→  const [statusOpen, setStatusOpen] = useState(false);
+   206→  const [priorityOpen, setPriorityOpen] = useState(false);
+   207→
+   208→  // ---- Assignee popover ----
+   209→  const [assigneeOpen, setAssigneeOpen] = useState(false);
+   210→  const [members, setMembers] = useState<TeamMember[]>([]);
+   211→  const [membersLoading, setMembersLoading] = useState(false);
+   212→
+   213→  // ---- Due date popover ----
+   214→  const [dueDateOpen, setDueDateOpen] = useState(false);
+   215→
+   216→  // ---- Delete dialog ----
+   217→  const [deleteOpen, setDeleteOpen] = useState(false);
+   218→  const [deleteLoading, setDeleteLoading] = useState(false);
+   219→
+   220→  // ---- Comment ----
+   221→  const [commentText, setCommentText] = useState("");
+   222→  const [submittingComment, setSubmittingComment] = useState(false);
+   223→  const commentsEndRef = useRef<HTMLDivElement>(null);
+   224→  const commentTextareaRef = useRef<HTMLTextAreaElement>(null);
+   225→
+   226→  // ---- Description debounce timer ----
+   227→  const descTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+   228→
+   229→  // =========================================================================
+   230→  // Fetch task
+   231→  // =========================================================================
+   232→
+   233→  const fetchTask = useCallback(async () => {
+   234→    if (!taskId) return;
+   235→    setLoading(true);
+   236→    setNotFound(false);
+   237→
+   238→    try {
+   239→      const res = await fetch(`/api/tasks/${taskId}`);
+   240→      if (res.status === 404) {
+   241→        setNotFound(true);
+   242→        toast.error("This task has been deleted");
+   243→        onOpenChange(false);
+   244→        onDelete?.();
+   245→        onUpdate?.();
+   246→        setLoading(false);
+   247→        return;
+   248→      }
+   249→      if (res.ok) {
+   250→        const data = await res.json();
+   251→        setTask(data.task);
+   252→        setComments(data.comments ?? []);
+   253→        setDescriptionValue(data.task.description ?? "");
+   254→        setDescriptionDirty(false);
+   255→      } else {
+   256→        toast.error("Failed to load task");
+   257→      }
+   258→    } catch {
+   259→      toast.error("Something went wrong");
+   260→    } finally {
+   261→      setLoading(false);
+   262→    }
+   263→  }, [taskId, onOpenChange, onDelete, onUpdate]);
+   264→
+   265→  useEffect(() => {
+   266→    if (open && taskId) {
+   267→      fetchTask();
+   268→      // Fetch team members for assignee selector
+   269→      if (task?.projectId) {
+   270→        fetchMembers(task.projectId);
+   271→      }
+   272→    } else {
+   273→      setTask(null);
+   274→      setComments([]);
+   275→      setEditingTitle(false);
+   276→      setDescriptionValue("");
+   277→      setDescriptionDirty(false);
+   278→      setCommentText("");
+   279→      setNotFound(false);
+   280→    }
+   281→  }, [open, taskId]);
+   282→
+   283→  // Fetch members when task loads (for assignee dropdown)
+   284→  useEffect(() => {
+   285→    if (open && task?.projectId) {
+   286→      fetchMembers(task.projectId);
+   287→    }
+   288→  }, [open, task?.projectId]);
+   289→
+   290→  // Scroll comments to bottom when loaded
+   291→  useEffect(() => {
+   292→    if (comments.length > 0) {
+   293→      setTimeout(() => {
+   294→        commentsEndRef.current?.scrollIntoView({ behavior: "smooth" });
+   295→      }, 100);
+   296→    }
+   297→  }, [comments.length]);
+   298→
+   299→  // Cleanup description debounce on unmount
+   300→  useEffect(() => {
+   301→    return () => {
+   302→      if (descTimerRef.current) clearTimeout(descTimerRef.current);
+   303→    };
+   304→  }, []);
+   305→
+   306→  // =========================================================================
+   307→  // Fetch team members
+   308→  // =========================================================================
+   309→
+   310→  const fetchMembers = useCallback(async (projectId: number) => {
+   311→    setMembersLoading(true);
+   312→    try {
+   313→      const res = await fetch(`/api/projects/${projectId}`);
+   314→      if (res.ok) {
+   315→        const data = await res.json();
+   316→        setMembers(data.project?.team?.members ?? []);
+   317→      }
+   318→    } catch {
+   319→      // silent
+   320→    } finally {
+   321→      setMembersLoading(false);
+   322→    }
+   323→  }, []);
+   324→
+   325→  // =========================================================================
+   326→  // Field update with optimistic UI
+   327→  // =========================================================================
+   328→
+   329→  async function handleUpdateField(
+   330→    field: string,
+   331→    value: unknown,
+   332→    optimisticUpdate?: (t: TaskDetail) => TaskDetail
+   333→  ) {
+   334→    if (!taskId || !task) return;
+   335→    setUpdatingField(field);
+   336→
+   337→    // Optimistic update
+   338→    if (optimisticUpdate) {
+   339→      setTask(optimisticUpdate(task));
+   340→    }
+   341→
+   342→    try {
+   343→      const res = await fetch(`/api/tasks/${taskId}`, {
+   344→        method: "PUT",
+   345→        headers: { "Content-Type": "application/json" },
+   346→        body: JSON.stringify({ [field]: value }),
+   347→      });
+   348→      if (res.ok) {
+   349→        const data = await res.json();
+   350→        setTask(data.task);
+   351→        onUpdate?.();
+   352→      } else {
+   353→        // Revert on error
+   354→        const data = await res.json();
+   355→        toast.error(data.error || "Failed to update");
+   356→        fetchTask(); // refetch to revert
+   357→      }
+   358→    } catch {
+   359→      toast.error("Something went wrong");
+   360→      fetchTask(); // refetch to revert
+   361→    } finally {
+   362→      setUpdatingField(null);
+   363→    }
+   364→  }
+   365→
+   366→  // =========================================================================
+   367→  // Title editing (double-click)
+   368→  // =========================================================================
+   369→
+   370→  function handleTitleDoubleClick() {
+   371→    if (!task || !canEdit) return;
+   372→    setEditTitleValue(task.title);
+   373→    setEditingTitle(true);
+   374→  }
+   375→
+   376→  function handleSaveTitle() {
+   377→    if (!editTitleValue.trim()) {
+   378→      setEditingTitle(false);
+   379→      return;
+   380→    }
+   381→    const trimmed = editTitleValue.trim();
+   382→    if (trimmed !== task?.title) {
+   383→      handleUpdateField("title", trimmed);
+   384→    }
+   385→    setEditingTitle(false);
+   386→  }
+   387→
+   388→  // =========================================================================
+   389→  // Description (auto-save on blur with debounce)
+   390→  // =========================================================================
+   391→
+   392→  function handleDescriptionChange(value: string) {
+   393→    setDescriptionValue(value);
+   394→    setDescriptionDirty(value !== (task?.description ?? ""));
+   395→
+   396→    // Debounced save
+   397→    if (descTimerRef.current) clearTimeout(descTimerRef.current);
+   398→    descTimerRef.current = setTimeout(() => {
+   399→      handleSaveDescription(value);
+   400→    }, 800);
+   401→  }
+   402→
+   403→  async function handleSaveDescription(value?: string) {
+   404→    const val = value ?? descriptionValue;
+   405→    const trimmed = val.trim();
+   406→    if (trimmed === (task?.description ?? "")) {
+   407→      setDescriptionDirty(false);
+   408→      return;
+   409→    }
+   410→    setUpdatingField("description");
+   411→    try {
+   412→      const res = await fetch(`/api/tasks/${taskId}`, {
+   413→        method: "PUT",
+   414→        headers: { "Content-Type": "application/json" },
+   415→        body: JSON.stringify({ description: trimmed || null }),
+   416→      });
+   417→      if (res.ok) {
+   418→        setDescriptionDirty(false);
+   419→        onUpdate?.();
+   420→      } else {
+   421→        const data = await res.json();
+   422→        toast.error(data.error || "Failed to save description");
+   423→      }
+   424→    } catch {
+   425→      toast.error("Something went wrong");
+   426→    } finally {
+   427→      setUpdatingField(null);
+   428→    }
+   429→  }
+   430→
+   431→  function handleDescriptionBlur() {
+   432→    // Save immediately on blur if dirty
+   433→    if (descTimerRef.current) clearTimeout(descTimerRef.current);
+   434→    if (descriptionDirty) {
+   435→      handleSaveDescription();
+   436→    }
+   437→  }
+   438→
+   439→  // =========================================================================
+   440→  // Status / Priority change
+   441→  // =========================================================================
+   442→
+   443→  function handleStatusChange(newStatus: string) {
+   444→    if (!task || newStatus === task.status) {
+   445→      setStatusOpen(false);
+   446→      return;
+   447→    }
+   448→    setStatusOpen(false);
+   449→    toast.success("Status updated");
+   450→    handleUpdateField(
+   451→      "status",
+   452→      newStatus,
+   453→      (t) => ({ ...t, status: newStatus })
+   454→    );
+   455→  }
+   456→
+   457→  function handlePriorityChange(newPriority: string) {
+   458→    if (!task || newPriority === task.priority) {
+   459→      setPriorityOpen(false);
+   460→      return;
+   461→    }
+   462→    setPriorityOpen(false);
+   463→    toast.success("Priority updated");
+   464→    handleUpdateField(
+   465→      "priority",
+   466→      newPriority,
+   467→      (t) => ({ ...t, priority: newPriority })
+   468→    );
+   469→  }
+   470→
+   471→  // =========================================================================
+   472→  // Assignee change
+   473→  // =========================================================================
+   474→
+   475→  function handleAssigneeChange(userId: number | null) {
+   476→    setAssigneeOpen(false);
+   477→    handleUpdateField(
+   478→      "assigneeId",
+   479→      userId,
+   480→      (t) => {
+   481→        if (userId === null) return { ...t, assignee: null };
+   482→        const member = members.find((m) => m.user.id === userId);
+   483→        return {
+   484→          ...t,
+   485→          assignee: member
+   486→            ? { id: member.user.id, name: member.user.name, image: member.user.image }
+   487→            : null,
+   488→        };
+   489→      }
+   490→    );
+   491→  }
+   492→
+   493→  // =========================================================================
+   494→  // Due date change
+   495→  // =========================================================================
+   496→
+   497→  function handleDueDateSelect(date: Date | undefined) {
+   498→    setDueDateOpen(false);
+   499→    if (!date) {
+   500→      handleUpdateField("dueDate", null, (t) => ({ ...t, dueDate: null }));
+   501→      return;
+   502→    }
+   503→    const dateStr = date.toISOString().split("T")[0];
+   504→    handleUpdateField("dueDate", dateStr, (t) => ({ ...t, dueDate: dateStr }));
+   505→  }
+   506→
+   507→  function handleClearDueDate() {
+   508→    setDueDateOpen(false);
+   509→    handleUpdateField("dueDate", null, (t) => ({ ...t, dueDate: null }));
+   510→  }
+   511→
+   512→  // =========================================================================
+   513→  // Delete
+   514→  // =========================================================================
+   515→
+   516→  async function handleDelete() {
+   517→    if (!taskId) return;
+   518→    setDeleteLoading(true);
+   519→    try {
+   520→      const res = await fetch(`/api/tasks/${taskId}`, { method: "DELETE" });
+   521→      if (res.ok) {
+   522→        toast.success("Task deleted");
+   523→        onOpenChange(false);
+   524→        onDelete?.();
+   525→        onUpdate?.();
+   526→      } else {
+   527→        const data = await res.json();
+   528→        toast.error(data.error || "Failed to delete task");
+   529→      }
+   530→    } catch {
+   531→      toast.error("Something went wrong");
+   532→    } finally {
+   533→      setDeleteLoading(false);
+   534→    }
+   535→  }
+   536→
+   537→  // =========================================================================
+   538→  // Comments
+   539→  // =========================================================================
+   540→
+   541→  async function handleAddComment(e: React.FormEvent) {
+   542→    e.preventDefault();
+   543→    if (!taskId || !commentText.trim()) return;
+   544→
+   545→    setSubmittingComment(true);
+   546→    try {
+   547→      const res = await fetch(`/api/tasks/${taskId}/comments`, {
+   548→        method: "POST",
+   549→        headers: { "Content-Type": "application/json" },
+   550→        body: JSON.stringify({ content: commentText.trim() }),
+   551→      });
+   552→      if (res.ok) {
+   553→        setCommentText("");
+   554→        fetchTask();
+   555→        onUpdate?.();
+   556→      } else {
+   557→        const data = await res.json();
+   558→        toast.error(data.error || "Failed to add comment");
+   559→      }
+   560→    } catch {
+   561→      toast.error("Something went wrong");
+   562→    } finally {
+   563→      setSubmittingComment(false);
+   564→    }
+   565→  }
+   566→
+   567→  function handleCommentKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+   568→    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+   569→      e.preventDefault();
+   570→      if (commentText.trim() && !submittingComment) {
+   571→        handleAddComment(e);
+   572→      }
+   573→    }
+   574→  }
+   575→
+   576→  // =========================================================================
+   577→  // Helper: get current status/priority config
+   578→  // =========================================================================
+   579→
+   580→  const currentStatus = statusOptions.find((s) => s.value === task?.status) ?? statusOptions[0];
+   581→  const currentPriority = priorityOptions.find((p) => p.value === task?.priority) ?? priorityOptions[1];
+   582→
+   583→  // =========================================================================
+   584→  // Render: Loading skeleton
+   585→  // =========================================================================
+   586→
+   587→  if (loading) {
+   588→    return (
+   589→      <Sheet open={open} onOpenChange={onOpenChange}>
+   590→        <SheetContent
+   591→          side="right"
+   592→          className="w-full sm:max-w-[480px] p-0 flex flex-col"
+   593→        >
+   594→          <div className="flex-1 p-6 space-y-5">
+   595→            <Skeleton className="h-7 w-3/4" />
+   596→            <Skeleton className="h-4 w-40" />
+   597→            <div className="flex gap-2">
+   598→              <Skeleton className="h-7 w-24 rounded-full" />
+   599→              <Skeleton className="h-7 w-24 rounded-full" />
+   600→            </div>
+   601→            <Separator />
+   602→            <Skeleton className="h-20 w-full" />
+   603→            <Skeleton className="h-5 w-32" />
+   604→            <Separator />
+   605→            <div className="space-y-3">
+   606→              {Array.from({ length: 3 }).map((_, i) => (
+   607→                <div key={i} className="flex gap-3">
+   608→                  <Skeleton className="size-8 rounded-full shrink-0" />
+   609→                  <div className="flex-1 space-y-1">
+   610→                    <Skeleton className="h-3 w-24" />
+   611→                    <Skeleton className="h-3 w-full" />
+   612→                  </div>
+   613→                </div>
+   614→              ))}
+   615→            </div>
+   616→          </div>
+   617→        </SheetContent>
+   618→      </Sheet>
+   619→    );
+   620→  }
+   621→
+   622→  // =========================================================================
+   623→  // Render: Main
+   624→  // =========================================================================
+   625→
+   626→  return (
+   627→    <>
+   628→      <Sheet open={open} onOpenChange={onOpenChange}>
+   629→        <SheetContent
+   630→          side="right"
+   631→          className="w-full sm:max-w-[480px] p-0 flex flex-col"
+   632→        >
+   633→          {task ? (
+   634→            <>
+   635→              {/* =================== HEADER =================== */}
+   636→              <div className="px-5 pt-5 pb-0 space-y-2 shrink-0">
+   637→                {/* Title */}
+   638→                <div className="pr-8">
+   639→                  {editingTitle ? (
+   640→                    <div className="flex items-center gap-1.5">
+   641→                      <Input
+   642→                        value={editTitleValue}
+   643→                        onChange={(e) => setEditTitleValue(e.target.value)}
+   644→                        maxLength={200}
+   645→                        autoFocus
+   646→                        onKeyDown={(e) => {
+   647→                          if (e.key === "Enter") handleSaveTitle();
+   648→                          if (e.key === "Escape") setEditingTitle(false);
+   649→                        }}
+   650→                        onBlur={handleSaveTitle}
+   651→                        className="h-8 text-lg font-semibold"
+   652→                      />
+   653→                    </div>
+   654→                  ) : (
+   655→                    <h2
+   656→                      className="text-lg font-semibold leading-tight cursor-default select-none"
+   657→                      onDoubleClick={handleTitleDoubleClick}
+   658→                      title="Double-click to edit"
+   659→                    >
+   660→                      {task.title}
+   661→                    </h2>
+   662→                  )}
+   663→                </div>
+   664→
+   665→                {/* Created by · relative time */}
+   666→                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+   667→                  <Avatar className="size-4">
+   668→                    <AvatarImage src={task.creator.image ?? undefined} />
+   669→                    <AvatarFallback className="text-[7px]">
+   670→                      {getInitials(task.creator.name)}
+   671→                    </AvatarFallback>
+   672→                  </Avatar>
+   673→                  <span>
+   674→                    Created by <span className="font-medium text-foreground/80">{task.creator.name}</span>
+   675→                    {" · "}
+   676→                    {formatRelativeTime(task.createdAt)}
+   677→                  </span>
+   678→                </div>
+   679→
+   680→                {/* Status & Priority pills */}
+   681→                <div className="flex items-center gap-2 pt-1 pb-3">
+   682→                  {canEdit ? (
+   683→                    <Popover open={statusOpen} onOpenChange={setStatusOpen}>
+   684→                      <PopoverTrigger asChild>
+   685→                        <button
+   686→                          className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium transition-colors hover:opacity-80 ${currentStatus.color}`}
+   687→                        >
+   688→                          {updatingField === "status" && (
+   689→                            <Loader2 className="size-3 animate-spin" />
+   690→                          )}
+   691→                          {currentStatus.label}
+   692→                        </button>
+   693→                      </PopoverTrigger>
+   694→                      <PopoverContent className="w-40 p-1" align="start">
+   695→                        <div className="space-y-0.5">
+   696→                          {statusOptions.map((opt) => (
+   697→                            <button
+   698→                              key={opt.value}
+   699→                              className={`flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors hover:bg-accent ${
+   700→                                opt.value === task.status ? "bg-accent" : ""
+   701→                              }`}
+   702→                              onClick={() => handleStatusChange(opt.value)}
+   703→                            >
+   704→                              {opt.value === task.status && (
+   705→                                <Check className="size-3.5 text-primary" />
+   706→                              )}
+   707→                              {opt.value !== task.status && (
+   708→                                <span className="w-3.5" />
+   709→                              )}
+   710→                              {opt.label}
+   711→                            </button>
+   712→                          ))}
+   713→                        </div>
+   714→                      </PopoverContent>
+   715→                    </Popover>
+   716→                  ) : (
+   717→                    <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${currentStatus.color}`}>
+   718→                      {currentStatus.label}
+   719→                    </span>
+   720→                  )}
+   721→
+   722→                  {canEdit ? (
+   723→                    <Popover open={priorityOpen} onOpenChange={setPriorityOpen}>
+   724→                      <PopoverTrigger asChild>
+   725→                        <button
+   726→                          className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium transition-colors hover:opacity-80 ${currentPriority.color}`}
+   727→                        >
+   728→                          {updatingField === "priority" && (
+   729→                            <Loader2 className="size-3 animate-spin" />
+   730→                          )}
+   731→                          <span className={`inline-block size-1.5 rounded-full ${currentPriority.dotColor}`} />
+   732→                          {currentPriority.label}
+   733→                        </button>
+   734→                      </PopoverTrigger>
+   735→                      <PopoverContent className="w-40 p-1" align="start">
+   736→                        <div className="space-y-0.5">
+   737→                          {priorityOptions.map((opt) => (
+   738→                            <button
+   739→                              key={opt.value}
+   740→                              className={`flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors hover:bg-accent ${
+   741→                                opt.value === task.priority ? "bg-accent" : ""
+   742→                              }`}
+   743→                              onClick={() => handlePriorityChange(opt.value)}
+   744→                            >
+   745→                              {opt.value === task.priority && (
+   746→                                <Check className="size-3.5 text-primary" />
+   747→                              )}
+   748→                              {opt.value !== task.priority && (
+   749→                                <span className="w-3.5" />
+   750→                              )}
+   751→                              <span className={`inline-block size-2 rounded-full ${opt.dotColor}`} />
+   752→                              {opt.label}
+   753→                            </button>
+   754→                          ))}
+   755→                        </div>
+   756→                      </PopoverContent>
+   757→                    </Popover>
+   758→                  ) : (
+   759→                    <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${currentPriority.color}`}>
+   760→                      <span className={`inline-block size-1.5 rounded-full ${currentPriority.dotColor}`} />
+   761→                      {currentPriority.label}
+   762→                    </span>
+   763→                  )}
+   764→                </div>
+   765→              </div>
+   766→
+   767→              <Separator />
+   768→
+   769→              {/* =================== SCROLLABLE CONTENT =================== */}
+   770→              <div className="flex-1 overflow-y-auto">
+   771→                <div className="p-5 space-y-6">
+   772→                  {/* ---- Description ---- */}
+   773→                  <div className="space-y-1.5">
+   774→                    <Label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
+   775→                      Description
+   776→                    </Label>
+   777→                    {canEdit ? (
+   778→                      <>
+   779→                        <Textarea
+   780→                          value={descriptionValue}
+   781→                          onChange={(e) => handleDescriptionChange(e.target.value)}
+   782→                          onBlur={handleDescriptionBlur}
+   783→                          maxLength={1000}
+   784→                          rows={3}
+   785→                          placeholder="Add a description..."
+   786→                          className="min-h-[80px] text-sm resize-y"
+   787→                          disabled={updatingField === "description"}
+   788→                        />
+   789→                        <div className="flex items-center justify-between">
+   790→                          {descriptionDirty && (
+   791→                            <span className="text-[10px] text-muted-foreground">
+   792→                              {updatingField === "description" ? (
+   793→                                <span className="flex items-center gap-1">
+   794→                                  <Loader2 className="size-2.5 animate-spin" />
+   795→                                  Saving...
+   796→                                </span>
+   797→                              ) : (
+   798→                                "Unsaved changes"
+   799→                              )}
+   800→                            </span>
+   801→                          )}
+   802→                          <p className="text-[10px] text-muted-foreground tabular-nums ml-auto">
+   803→                            {descriptionValue.length}/1000
+   804→                          </p>
+   805→                        </div>
+   806→                      </>
+   807→                    ) : (
+   808→                      <p className="text-sm text-foreground/80 whitespace-pre-wrap">
+   809→                        {task.description || (
+   810→                          <span className="text-muted-foreground italic">
+   811→                            No description
+   812→                          </span>
+   813→                        )}
+   814→                      </p>
+   815→                    )}
+   816→                  </div>
+   817→
+   818→                  <Separator />
+   819→
+   820→                  {/* ---- Details grid ---- */}
+   821→                  <div className="space-y-4">
+   822→                    {/* Assignee */}
+   823→                    <div className="space-y-1.5">
+   824→                      <Label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
+   825→                        <UserIcon className="inline size-3 mr-1 -mt-0.5" />
+   826→                        Assignee
+   827→                      </Label>
+   828→                      {canEdit ? (
+   829→                        <Popover open={assigneeOpen} onOpenChange={setAssigneeOpen}>
+   830→                          <PopoverTrigger asChild>
+   831→                            <button
+   832→                              className="flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm hover:bg-accent transition-colors w-full"
+   833→                              disabled={membersLoading || updatingField === "assigneeId"}
+   834→                            >
+   835→                              {task.assignee ? (
+   836→                                <>
+   837→                                  <Avatar className="size-5">
+   838→                                    <AvatarImage src={task.assignee.image ?? undefined} />
+   839→                                    <AvatarFallback className="text-[8px]">
+   840→                                      {getInitials(task.assignee.name)}
+   841→                                    </AvatarFallback>
+   842→                                  </Avatar>
+   843→                                  <span className="flex-1 text-left">{task.assignee.name}</span>
+   844→                                </>
+   845→                              ) : (
+   846→                                <span className="text-muted-foreground">Unassigned</span>
+   847→                              )}
+   848→                              {updatingField === "assigneeId" ? (
+   849→                                <Loader2 className="size-3.5 animate-spin shrink-0" />
+   850→                              ) : (
+   851→                                <ChevronsUpDown className="size-3.5 shrink-0 opacity-50" />
+   852→                              )}
+   853→                            </button>
+   854→                          </PopoverTrigger>
+   855→                          <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+   856→                            <Command>
+   857→                              <CommandInput placeholder="Search members..." />
+   858→                              <CommandList>
+   859→                                <CommandEmpty>No members found.</CommandEmpty>
+   860→                                <CommandGroup>
+   861→                                  <CommandItem
+   862→                                    value="__unassigned"
+   863→                                    onSelect={() => handleAssigneeChange(null)}
+   864→                                  >
+   865→                                    <Check
+   866→                                      className={`mr-2 size-4 ${
+   867→                                        !task.assignee ? "opacity-100" : "opacity-0"
+   868→                                      }`}
+   869→                                    />
+   870→                                    Unassigned
+   871→                                  </CommandItem>
+   872→                                  {members.map((m) => (
+   873→                                    <CommandItem
+   874→                                      key={m.user.id}
+   875→                                      value={m.user.name}
+   876→                                      onSelect={() => handleAssigneeChange(m.user.id)}
+   877→                                    >
+   878→                                      <Check
+   879→                                        className={`mr-2 size-4 ${
+   880→                                          task.assignee?.id === m.user.id
+   881→                                            ? "opacity-100"
+   882→                                            : "opacity-0"
+   883→                                        }`}
+   884→                                      />
+   885→                                      <Avatar className="size-5 mr-2">
+   886→                                        <AvatarImage src={m.user.image ?? undefined} />
+   887→                                        <AvatarFallback className="text-[8px]">
+   888→                                          {getInitials(m.user.name)}
+   889→                                        </AvatarFallback>
+   890→                                      </Avatar>
+   891→                                      {m.user.name}
+   892→                                    </CommandItem>
+   893→                                  ))}
+   894→                                </CommandGroup>
+   895→                              </CommandList>
+   896→                            </Command>
+   897→                          </PopoverContent>
+   898→                        </Popover>
+   899→                      ) : (
+   900→                        <div className="flex items-center gap-2">
+   901→                          {task.assignee ? (
+   902→                            <>
+   903→                              <Avatar className="size-5">
+   904→                                <AvatarImage src={task.assignee.image ?? undefined} />
+   905→                                <AvatarFallback className="text-[8px]">
+   906→                                  {getInitials(task.assignee.name)}
+   907→                                </AvatarFallback>
+   908→                              </Avatar>
+   909→                              <span className="text-sm">{task.assignee.name}</span>
+   910→                            </>
+   911→                          ) : (
+   912→                            <span className="text-sm text-muted-foreground">Unassigned</span>
+   913→                          )}
+   914→                        </div>
+   915→                      )}
+   916→                    </div>
+   917→
+   918→                    {/* Due Date */}
+   919→                    <div className="space-y-1.5">
+   920→                      <Label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
+   921→                        <Calendar className="inline size-3 mr-1 -mt-0.5" />
+   922→                        Due Date
+   923→                      </Label>
+   924→                      {canEdit ? (
+   925→                        <Popover open={dueDateOpen} onOpenChange={setDueDateOpen}>
+   926→                          <PopoverTrigger asChild>
+   927→                            <button
+   928→                              className={`flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm hover:bg-accent transition-colors ${
+   929→                                task.dueDate && isOverdue(task.dueDate, task.status)
+   930→                                  ? "border-red-300 dark:border-red-800 text-red-600 dark:text-red-400"
+   931→                                  : ""
+   932→                              }`}
+   933→                              disabled={updatingField === "dueDate"}
+   934→                            >
+   935→                              {updatingField === "dueDate" ? (
+   936→                                <Loader2 className="size-3.5 animate-spin" />
+   937→                              ) : (
+   938→                                <Calendar className="size-3.5 text-muted-foreground" />
+   939→                              )}
+   940→                              {task.dueDate ? (
+   941→                                <span>{formatDate(task.dueDate)}</span>
+   942→                              ) : (
+   943→                                <span className="text-muted-foreground">Set due date</span>
+   944→                              )}
+   945→                            </button>
+   946→                          </PopoverTrigger>
+   947→                          <PopoverContent className="w-auto p-0" align="start">
+   948→                            <div className="flex flex-col">
+   949→                              <CalendarUI
+   950→                                mode="single"
+   951→                                selected={task.dueDate ? new Date(task.dueDate) : undefined}
+   952→                                onSelect={handleDueDateSelect}
+   953→                                initialFocus
+   954→                              />
+   955→                              {task.dueDate && (
+   956→                                <div className="border-t px-2 py-1.5">
+   957→                                  <button
+   958→                                    className="w-full text-xs text-muted-foreground hover:text-foreground transition-colors text-left px-2 py-1 rounded hover:bg-accent"
+   959→                                    onClick={handleClearDueDate}
+   960→                                  >
+   961→                                    Clear date
+   962→                                  </button>
+   963→                                </div>
+   964→                              )}
+   965→                            </div>
+   966→                          </PopoverContent>
+   967→                        </Popover>
+   968→                      ) : (
+   969→                        <span className={`text-sm ${task.dueDate && isOverdue(task.dueDate, task.status) ? "text-red-600 dark:text-red-400" : "text-muted-foreground"}`}>
+   970→                          {task.dueDate ? formatDate(task.dueDate) : "No due date"}
+   971→                        </span>
+   972→                      )}
+   973→                    </div>
+   974→
+   975→                    {/* Project */}
+   976→                    {task.project && (
+   977→                      <div className="space-y-1.5">
+   978→                        <Label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
+   979→                          <FolderKanban className="inline size-3 mr-1 -mt-0.5" />
+   980→                          Project
+   981→                        </Label>
+   982→                        <span className="text-sm">{task.project.name}</span>
+   983→                      </div>
+   984→                    )}
+   985→
+   986→                    {/* Creator */}
+   987→                    <div className="space-y-1.5">
+   988→                      <Label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
+   989→                        Created by
+   990→                      </Label>
+   991→                      <div className="flex items-center gap-2">
+   992→                        <Avatar className="size-5">
+   993→                          <AvatarImage src={task.creator.image ?? undefined} />
+   994→                          <AvatarFallback className="text-[8px]">
+   995→                            {getInitials(task.creator.name)}
+   996→                          </AvatarFallback>
+   997→                        </Avatar>
+   998→                        <span className="text-sm">{task.creator.name}</span>
+   999→                        <span className="text-xs text-muted-foreground">
+  1000→                          {formatDate(task.createdAt)}
+  1001→                        </span>
+  1002→                      </div>
+  1003→                    </div>
+  1004→                  </div>
+  1005→
+  1006→                  <Separator />
+  1007→
+  1008→                  {/* ---- Comments ---- */}
+  1009→                  <div className="space-y-3">
+  1010→                    <Label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
+  1011→                      <MessageSquare className="inline size-3 mr-1 -mt-0.5" />
+  1012→                      Comments ({comments.length})
+  1013→                    </Label>
+  1014→
+  1015→                    {/* Comment list (newest first) */}
+  1016→                    <div className="space-y-3">
+  1017→                      {comments.length > 0 ? (
+  1018→                        comments.map((comment) => (
+  1019→                          <div key={comment.id} className="flex gap-2.5">
+  1020→                            <Avatar className="size-7 shrink-0 mt-0.5">
+  1021→                              <AvatarImage src={comment.user.image ?? undefined} />
+  1022→                              <AvatarFallback className="text-[10px]">
+  1023→                                {getInitials(comment.user.name)}
+  1024→                              </AvatarFallback>
+  1025→                            </Avatar>
+  1026→                            <div className="min-w-0 flex-1">
+  1027→                              <div className="flex items-baseline gap-2">
+  1028→                                <span className="text-xs font-medium">
+  1029→                                  {comment.user.name}
+  1030→                                </span>
+  1031→                                <span className="text-[10px] text-muted-foreground">
+  1032→                                  {formatRelativeTime(comment.createdAt)}
+  1033→                                </span>
+  1034→                              </div>
+  1035→                              <p className="mt-0.5 text-sm text-foreground/80 whitespace-pre-wrap">
+  1036→                                {comment.description}
+  1037→                              </p>
+  1038→                            </div>
+  1039→                          </div>
+  1040→                        ))
+  1041→                      ) : (
+  1042→                        <p className="text-xs text-muted-foreground py-2">
+  1043→                          No comments yet.
+  1044→                        </p>
+  1045→                      )}
+  1046→                      <div ref={commentsEndRef} />
+  1047→                    </div>
+  1048→
+  1049→                    {/* Add comment */}
+  1050→                    <form onSubmit={handleAddComment} className="space-y-2">
+  1051→                      <Textarea
+  1052→                        ref={commentTextareaRef}
+  1053→                        value={commentText}
+  1054→                        onChange={(e) => setCommentText(e.target.value)}
+  1055→                        onKeyDown={handleCommentKeyDown}
+  1056→                        placeholder="Add a comment... (⌘+Enter to send)"
+  1057→                        rows={2}
+  1058→                        className="min-h-[60px] text-sm"
+  1059→                        disabled={submittingComment}
+  1060→                      />
+  1061→                      <div className="flex items-center justify-between">
+  1062→                        <span className="text-[10px] text-muted-foreground">
+  1063→                          ⌘+Enter to send
+  1064→                        </span>
+  1065→                        <Button
+  1066→                          type="submit"
+  1067→                          size="sm"
+  1068→                          className="h-7 text-xs gap-1.5"
+  1069→                          disabled={!commentText.trim() || submittingComment}
+  1070→                        >
+  1071→                          {submittingComment ? (
+  1072→                            <Loader2 className="size-3.5 animate-spin" />
+  1073→                          ) : (
+  1074→                            <MessageSquare className="size-3.5" />
+  1075→                          )}
+  1076→                          Comment
+  1077→                        </Button>
+  1078→                      </div>
+  1079→                    </form>
+  1080→                  </div>
+  1081→                </div>
+  1082→              </div>
+  1083→
+  1084→              {/* =================== FOOTER =================== */}
+  1085→              {canDelete && (
+  1086→                <>
+  1087→                  <Separator />
+  1088→                  <div className="px-5 py-3 shrink-0">
+  1089→                    <button
+  1090→                      className="text-xs text-destructive/80 hover:text-destructive transition-colors flex items-center gap-1.5"
+  1091→                      onClick={() => setDeleteOpen(true)}
+  1092→                    >
+  1093→                      <Trash2 className="size-3.5" />
+  1094→                      Delete task
+  1095→                    </button>
+  1096→                  </div>
+  1097→                </>
+  1098→              )}
+  1099→            </>
+  1100→          ) : (
+  1101→            <div className="flex-1 flex items-center justify-center">
+  1102→              <p className="text-sm text-muted-foreground">Task not found.</p>
+  1103→            </div>
+  1104→          )}
+  1105→        </SheetContent>
+  1106→      </Sheet>
+  1107→
+  1108→      {/* Delete confirmation */}
+  1109→      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+  1110→        <AlertDialogContent>
+  1111→          <AlertDialogHeader>
+  1112→            <AlertDialogTitle>Delete this task?</AlertDialogTitle>
+  1113→            <AlertDialogDescription>
+  1114→              This will permanently delete &ldquo;{task?.title}&rdquo; and all its
+  1115→              comments. This action cannot be undone.
+  1116→            </AlertDialogDescription>
+  1117→          </AlertDialogHeader>
+  1118→          <AlertDialogFooter>
+  1119→            <AlertDialogCancel>Cancel</AlertDialogCancel>
+  1120→            <AlertDialogAction
+  1121→              onClick={handleDelete}
+  1122→              disabled={deleteLoading}
+  1123→              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+  1124→            >
+  1125→              {deleteLoading && (
+  1126→                <Loader2 className="mr-2 size-4 animate-spin" />
+  1127→              )}
+  1128→              Delete
+  1129→            </AlertDialogAction>
+  1130→          </AlertDialogFooter>
+  1131→        </AlertDialogContent>
+  1132→      </AlertDialog>
+  1133→    </>
+  1134→  );
+  1135→}

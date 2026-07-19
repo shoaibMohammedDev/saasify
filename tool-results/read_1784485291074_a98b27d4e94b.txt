@@ -1,0 +1,788 @@
+     1→"use client";
+     2→
+     3→import { useState, useEffect, useCallback } from "react";
+     4→import { toast } from "sonner";
+     5→import {
+     6→  ArrowLeft,
+     7→  Pencil,
+     8→  Trash2,
+     9→  Archive,
+    10→  ArchiveRestore,
+    11→  FolderKanban,
+    12→  CheckCircle2,
+    13→  Clock,
+    14→  Circle,
+    15→  List,
+    16→  LayoutGrid,
+    17→  Loader2,
+    18→  Plus,
+    19→  Users,
+    20→  TriangleAlert,
+    21→} from "lucide-react";
+    22→
+    23→import { useAppStore } from "@/stores/app-store";
+    24→import { useOrgPermission } from "@/hooks/use-org-permission";
+    25→import { TaskList } from "@/components/tasks/task-list";
+    26→import { KanbanBoard } from "@/components/tasks/kanban-board";
+    27→import { TaskDetailSheet } from "@/components/tasks/task-detail-sheet";
+    28→import { Button } from "@/components/ui/button";
+    29→import { Input } from "@/components/ui/input";
+    30→import { Textarea } from "@/components/ui/textarea";
+    31→import { Skeleton } from "@/components/ui/skeleton";
+    32→import { Badge } from "@/components/ui/badge";
+    33→import { Separator } from "@/components/ui/separator";
+    34→import { Card, CardContent } from "@/components/ui/card";
+    35→import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+    36→import { Label } from "@/components/ui/label";
+    37→import {
+    38→  Select,
+    39→  SelectContent,
+    40→  SelectItem,
+    41→  SelectTrigger,
+    42→  SelectValue,
+    43→} from "@/components/ui/select";
+    44→import {
+    45→  Dialog,
+    46→  DialogContent,
+    47→  DialogDescription,
+    48→  DialogFooter,
+    49→  DialogHeader,
+    50→  DialogTitle,
+    51→} from "@/components/ui/dialog";
+    52→import {
+    53→  AlertDialog,
+    54→  AlertDialogAction,
+    55→  AlertDialogCancel,
+    56→  AlertDialogContent,
+    57→  AlertDialogDescription,
+    58→  AlertDialogFooter,
+    59→  AlertDialogHeader,
+    60→  AlertDialogTitle,
+    61→  AlertDialogTrigger,
+    62→} from "@/components/ui/alert-dialog";
+    63→import type { TaskStats } from "@/components/projects/project-card";
+    64→
+    65→interface ProjectDetail {
+    66→  id: number;
+    67→  name: string;
+    68→  description?: string | null;
+    69→  status: string;
+    70→  createdAt: string;
+    71→  totalTasks: number;
+    72→  taskCompletion: number;
+    73→  taskStats: TaskStats;
+    74→  team?: {
+    75→    id: number;
+    76→    name: string;
+    77→    members: {
+    78→      user: {
+    79→        id: number;
+    80→        name: string;
+    81→        image?: string | null;
+    82→      };
+    83→    }[];
+    84→    _count: { members: number };
+    85→  } | null;
+    86→  creator?: {
+    87→    id: number;
+    88→    name: string;
+    89→    image?: string | null;
+    90→  };
+    91→}
+    92→
+    93→function getInitials(name: string): string {
+    94→  return name
+    95→    .split(" ")
+    96→    .map((n) => n[0])
+    97→    .join("")
+    98→    .toUpperCase()
+    99→    .slice(0, 2);
+   100→}
+   101→
+   102→export function ProjectDetailView() {
+   103→  const {
+   104→    selectedOrgId,
+   105→    selectedProjectId,
+   106→    selectedTaskId,
+   107→    organizations,
+   108→    setView,
+   109→    selectTask,
+   110→    taskViewMode,
+   111→    projectTaskViewModes,
+   112→    setTaskViewMode,
+   113→  } = useAppStore();
+   114→
+   115→  const canEdit = useOrgPermission("edit_project");
+   116→  const canDelete = useOrgPermission("delete_project");
+   117→  const canCreateTask = useOrgPermission("create_task");
+   118→
+   119→  const [project, setProject] = useState<ProjectDetail | null>(null);
+   120→  const [loading, setLoading] = useState(true);
+   121→  const [error, setError] = useState<string | null>(null);
+   122→
+   123→  // Edit project dialog
+   124→  const [editOpen, setEditOpen] = useState(false);
+   125→  const [editName, setEditName] = useState("");
+   126→  const [editDescription, setEditDescription] = useState("");
+   127→  const [editTeamId, setEditTeamId] = useState<string>("none");
+   128→  const [editLoading, setEditLoading] = useState(false);
+   129→  const [teams, setTeams] = useState<{ id: number; name: string }[]>([]);
+   130→
+   131→  // Create task dialog
+   132→  const [createTaskOpen, setCreateTaskOpen] = useState(false);
+   133→
+   134→  // Delete
+   135→  const [deleteLoading, setDeleteLoading] = useState(false);
+   136→
+   137→  // Archive toggle loading
+   138→  const [archiveLoading, setArchiveLoading] = useState(false);
+   139→
+   140→  // Task detail sheet
+   141→  const [sheetOpen, setSheetOpen] = useState(false);
+   142→
+   143→  const fetchProject = useCallback(async () => {
+   144→    if (!selectedProjectId) return;
+   145→    setLoading(true);
+   146→    setError(null);
+   147→
+   148→    try {
+   149→      const res = await fetch(`/api/projects/${selectedProjectId}`);
+   150→      if (res.ok) {
+   151→        const data = await res.json();
+   152→        setProject(data.project);
+   153→      } else if (res.status === 404) {
+   154→        setError("Project not found");
+   155→      } else {
+   156→        toast.error("Failed to load project");
+   157→      }
+   158→    } catch {
+   159→      toast.error("Something went wrong");
+   160→    } finally {
+   161→      setLoading(false);
+   162→    }
+   163→  }, [selectedProjectId]);
+   164→
+   165→  const fetchTeams = useCallback(async () => {
+   166→    if (!selectedOrgId) return;
+   167→    try {
+   168→      const res = await fetch(`/api/organizations/${selectedOrgId}/teams`);
+   169→      if (res.ok) {
+   170→        const data = await res.json();
+   171→        setTeams((data.teams ?? []).map((t: { id: number; name: string }) => ({ id: t.id, name: t.name })));
+   172→      }
+   173→    } catch {
+   174→      // silent
+   175→    }
+   176→  }, [selectedOrgId]);
+   177→
+   178→  useEffect(() => {
+   179→    fetchProject();
+   180→  }, [fetchProject]);
+   181→
+   182→  // Restore per-project view mode when project changes
+   183→  useEffect(() => {
+   184→    if (selectedProjectId && projectTaskViewModes[selectedProjectId]) {
+   185→      setTaskViewMode(projectTaskViewModes[selectedProjectId]);
+   186→    }
+   187→  }, [selectedProjectId, projectTaskViewModes, setTaskViewMode]);
+   188→
+   189→  // Open task detail sheet when selectedTaskId changes
+   190→  useEffect(() => {
+   191→    if (selectedTaskId) {
+   192→      setSheetOpen(true);
+   193→    }
+   194→  }, [selectedTaskId]);
+   195→
+   196→  // Close sheet and clear selectedTaskId
+   197→  function handleSheetOpenChange(open: boolean) {
+   198→    setSheetOpen(open);
+   199→    if (!open) {
+   200→      selectTask(0);
+   201→    }
+   202→  }
+   203→
+   204→  function handleTaskClick(taskId: number) {
+   205→    selectTask(taskId);
+   206→  }
+   207→
+   208→  // Edit dialog
+   209→  function openEditDialog() {
+   210→    if (!project) return;
+   211→    setEditName(project.name);
+   212→    setEditDescription(project.description ?? "");
+   213→    setEditTeamId(project.team?.id ? String(project.team.id) : "none");
+   214→    fetchTeams();
+   215→    setEditOpen(true);
+   216→  }
+   217→
+   218→  async function handleUpdateProject(e: React.FormEvent) {
+   219→    e.preventDefault();
+   220→    if (!selectedProjectId) return;
+   221→
+   222→    setEditLoading(true);
+   223→    try {
+   224→      const body: Record<string, unknown> = {
+   225→        name: editName.trim(),
+   226→        description: editDescription.trim() || undefined,
+   227→      };
+   228→      if (editTeamId !== "none") {
+   229→        body.teamId = Number(editTeamId);
+   230→      } else {
+   231→        body.teamId = null;
+   232→      }
+   233→
+   234→      const res = await fetch(`/api/projects/${selectedProjectId}`, {
+   235→        method: "PUT",
+   236→        headers: { "Content-Type": "application/json" },
+   237→        body: JSON.stringify(body),
+   238→      });
+   239→      if (res.ok) {
+   240→        toast.success("Project updated");
+   241→        setEditOpen(false);
+   242→        fetchProject();
+   243→      } else {
+   244→        const data = await res.json();
+   245→        toast.error(data.error || "Failed to update project");
+   246→      }
+   247→    } catch {
+   248→      toast.error("Something went wrong");
+   249→    } finally {
+   250→      setEditLoading(false);
+   251→    }
+   252→  }
+   253→
+   254→  // Archive toggle
+   255→  async function handleArchiveToggle() {
+   256→    if (!selectedProjectId || !project) return;
+   257→    const newStatus = project.status === "ACTIVE" ? "ARCHIVED" : "ACTIVE";
+   258→    setArchiveLoading(true);
+   259→    try {
+   260→      const res = await fetch(`/api/projects/${selectedProjectId}`, {
+   261→        method: "PUT",
+   262→        headers: { "Content-Type": "application/json" },
+   263→        body: JSON.stringify({ status: newStatus }),
+   264→      });
+   265→      if (res.ok) {
+   266→        toast.success(newStatus === "ACTIVE" ? "Project unarchived" : "Project archived");
+   267→        fetchProject();
+   268→      } else {
+   269→        const data = await res.json();
+   270→        toast.error(data.error || "Failed to update project");
+   271→      }
+   272→    } catch {
+   273→      toast.error("Something went wrong");
+   274→    } finally {
+   275→      setArchiveLoading(false);
+   276→    }
+   277→  }
+   278→
+   279→  // Delete
+   280→  async function handleDeleteProject() {
+   281→    if (!selectedProjectId) return;
+   282→    setDeleteLoading(true);
+   283→    try {
+   284→      const res = await fetch(`/api/projects/${selectedProjectId}`, {
+   285→        method: "DELETE",
+   286→      });
+   287→      if (res.ok) {
+   288→        toast.success("Project deleted");
+   289→        setView("projects");
+   290→      } else {
+   291→        const data = await res.json();
+   292→        toast.error(data.error || "Failed to delete project");
+   293→      }
+   294→    } catch {
+   295→      toast.error("Something went wrong");
+   296→    } finally {
+   297→      setDeleteLoading(false);
+   298→    }
+   299→  }
+   300→
+   301→  // Get org name
+   302→  const currentOrg = organizations.find((o) => o.id === selectedOrgId);
+   303→  const orgName = currentOrg?.name ?? "Organization";
+   304→
+   305→  // Error state
+   306→  if (!loading && error) {
+   307→    return (
+   308→      <div className="mx-auto max-w-5xl">
+   309→        <div className="flex flex-col items-center justify-center py-16">
+   310→          <TriangleAlert className="mb-4 size-12 text-muted-foreground/40" />
+   311→          <p className="text-sm font-medium text-muted-foreground">{error}</p>
+   312→          <Button
+   313→            variant="outline"
+   314→            size="sm"
+   315→            className="mt-4"
+   316→            onClick={() => setView("projects")}
+   317→          >
+   318→            <ArrowLeft className="mr-1.5 size-3.5" />
+   319→            Back to Projects
+   320→          </Button>
+   321→        </div>
+   322→      </div>
+   323→    );
+   324→  }
+   325→
+   326→  // Loading state
+   327→  if (loading) {
+   328→    return (
+   329→      <div className="mx-auto max-w-5xl space-y-6">
+   330→        {/* Breadcrumb skeleton */}
+   331→        <Skeleton className="h-4 w-64" />
+   332→
+   333→        {/* Header skeleton */}
+   334→        <div className="flex items-center gap-3">
+   335→          <Skeleton className="size-8" />
+   336→          <div className="flex-1">
+   337→            <Skeleton className="h-7 w-64" />
+   338→            <Skeleton className="mt-1 h-4 w-96" />
+   339→          </div>
+   340→        </div>
+   341→
+   342→        {/* Stats skeleton */}
+   343→        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+   344→          {Array.from({ length: 4 }).map((_, i) => (
+   345→            <Card key={i}>
+   346→              <CardContent className="p-4">
+   347→                <Skeleton className="h-4 w-20 mb-2" />
+   348→                <Skeleton className="h-7 w-12" />
+   349→              </CardContent>
+   350→            </Card>
+   351→          ))}
+   352→        </div>
+   353→
+   354→        {/* Content skeleton */}
+   355→        <Skeleton className="h-6 w-32" />
+   356→        <div className="space-y-2">
+   357→          {Array.from({ length: 5 }).map((_, i) => (
+   358→            <Skeleton key={i} className="h-12 w-full rounded-lg" />
+   359→          ))}
+   360→        </div>
+   361→      </div>
+   362→    );
+   363→  }
+   364→
+   365→  if (!project) {
+   366→    return (
+   367→      <div className="mx-auto max-w-5xl">
+   368→        <div className="flex items-center justify-center py-16">
+   369→          <p className="text-sm text-muted-foreground">Project not found.</p>
+   370→        </div>
+   371→      </div>
+   372→    );
+   373→  }
+   374→
+   375→  const stats = project.taskStats ?? { total: 0, done: 0, inProgress: 0, todo: 0 };
+   376→
+   377→  return (
+   378→    <div className="mx-auto max-w-5xl space-y-6">
+   379→      {/* Breadcrumb */}
+   380→      <nav className="flex items-center gap-1.5 text-sm text-muted-foreground">
+   381→        <button
+   382→          className="hover:text-foreground transition-colors"
+   383→          onClick={() => setView("projects")}
+   384→        >
+   385→          {orgName}
+   386→        </button>
+   387→        <span className="text-muted-foreground/50">/</span>
+   388→        <button
+   389→          className="hover:text-foreground transition-colors"
+   390→          onClick={() => setView("projects")}
+   391→        >
+   392→          Projects
+   393→        </button>
+   394→        <span className="text-muted-foreground/50">/</span>
+   395→        <span className="text-foreground font-medium">{project.name}</span>
+   396→      </nav>
+   397→
+   398→      {/* Header */}
+   399→      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+   400→        <div className="flex items-center gap-3">
+   401→          <Button
+   402→            variant="ghost"
+   403→            size="icon"
+   404→            className="size-8"
+   405→            onClick={() => setView("projects")}
+   406→          >
+   407→            <ArrowLeft className="size-4" />
+   408→            <span className="sr-only">Back to projects</span>
+   409→          </Button>
+   410→          <div className="min-w-0">
+   411→            <div className="flex items-center gap-2 flex-wrap">
+   412→              <h1 className="text-2xl font-bold tracking-tight truncate">
+   413→                {project.name}
+   414→              </h1>
+   415→              {canEdit && (
+   416→                <Button
+   417→                  variant="outline"
+   418→                  size="sm"
+   419→                  className="h-7 gap-1 text-xs"
+   420→                  onClick={() => {
+   421→                    if (project.status === "ACTIVE") {
+   422→                      handleArchiveToggle();
+   423→                    } else {
+   424→                      handleArchiveToggle();
+   425→                    }
+   426→                  }}
+   427→                  disabled={archiveLoading}
+   428→                >
+   429→                  {archiveLoading ? (
+   430→                    <Loader2 className="size-3 animate-spin" />
+   431→                  ) : project.status === "ACTIVE" ? (
+   432→                    <Archive className="size-3" />
+   433→                  ) : (
+   434→                    <ArchiveRestore className="size-3" />
+   435→                  )}
+   436→                  {project.status === "ACTIVE" ? "Archive" : "Unarchive"}
+   437→                </Button>
+   438→              )}
+   439→            </div>
+   440→            {project.description && (
+   441→              <p className="mt-1 text-sm text-muted-foreground line-clamp-1">
+   442→                {project.description}
+   443→              </p>
+   444→            )}
+   445→          </div>
+   446→        </div>
+   447→        <div className="flex items-center gap-2 shrink-0">
+   448→          {canEdit && (
+   449→            <Button
+   450→              variant="ghost"
+   451→              size="icon"
+   452→              className="size-8"
+   453→              onClick={openEditDialog}
+   454→            >
+   455→              <Pencil className="size-4" />
+   456→              <span className="sr-only">Edit project</span>
+   457→            </Button>
+   458→          )}
+   459→          {canDelete && (
+   460→            <AlertDialog>
+   461→              <AlertDialogTrigger asChild>
+   462→                <Button
+   463→                  variant="ghost"
+   464→                  size="icon"
+   465→                  className="size-8 text-muted-foreground hover:text-destructive"
+   466→                >
+   467→                  <Trash2 className="size-4" />
+   468→                  <span className="sr-only">Delete project</span>
+   469→                </Button>
+   470→              </AlertDialogTrigger>
+   471→              <AlertDialogContent>
+   472→                <AlertDialogHeader>
+   473→                  <AlertDialogTitle>Delete &quot;{project.name}&quot;?</AlertDialogTitle>
+   474→                  <AlertDialogDescription>
+   475→                    This will permanently delete this project and all its tasks.
+   476→                    This action cannot be undone.
+   477→                  </AlertDialogDescription>
+   478→                </AlertDialogHeader>
+   479→                <AlertDialogFooter>
+   480→                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+   481→                  <AlertDialogAction
+   482→                    onClick={handleDeleteProject}
+   483→                    disabled={deleteLoading}
+   484→                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+   485→                  >
+   486→                    {deleteLoading && (
+   487→                      <Loader2 className="mr-2 size-4 animate-spin" />
+   488→                    )}
+   489→                    Delete Project
+   490→                  </AlertDialogAction>
+   491→                </AlertDialogFooter>
+   492→              </AlertDialogContent>
+   493→            </AlertDialog>
+   494→          )}
+   495→          {canCreateTask && (
+   496→            <Button
+   497→              size="sm"
+   498→              className="gap-1.5"
+   499→              onClick={() => setCreateTaskOpen(true)}
+   500→            >
+   501→              <Plus className="size-4" />
+   502→              Add Task
+   503→            </Button>
+   504→          )}
+   505→        </div>
+   506→      </div>
+   507→
+   508→      {/* Stats row */}
+   509→      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+   510→        <Card>
+   511→          <CardContent className="p-4">
+   512→            <div className="flex items-center gap-2 text-muted-foreground mb-1">
+   513→              <FolderKanban className="size-4" />
+   514→              <span className="text-xs font-medium">Total Tasks</span>
+   515→            </div>
+   516→            <p className="text-2xl font-bold tabular-nums">{stats.total}</p>
+   517→          </CardContent>
+   518→        </Card>
+   519→        <Card>
+   520→          <CardContent className="p-4">
+   521→            <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 mb-1">
+   522→              <CheckCircle2 className="size-4" />
+   523→              <span className="text-xs font-medium">Done</span>
+   524→            </div>
+   525→            <p className="text-2xl font-bold tabular-nums text-emerald-600 dark:text-emerald-400">
+   526→              {stats.done}
+   527→            </p>
+   528→          </CardContent>
+   529→        </Card>
+   530→        <Card>
+   531→          <CardContent className="p-4">
+   532→            <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400 mb-1">
+   533→              <Clock className="size-4" />
+   534→              <span className="text-xs font-medium">In Progress</span>
+   535→            </div>
+   536→            <p className="text-2xl font-bold tabular-nums text-blue-600 dark:text-blue-400">
+   537→              {stats.inProgress}
+   538→            </p>
+   539→          </CardContent>
+   540→        </Card>
+   541→        <Card>
+   542→          <CardContent className="p-4">
+   543→            <div className="flex items-center gap-2 text-muted-foreground mb-1">
+   544→              <Circle className="size-4" />
+   545→              <span className="text-xs font-medium">To Do</span>
+   546→            </div>
+   547→            <p className="text-2xl font-bold tabular-nums">{stats.todo}</p>
+   548→          </CardContent>
+   549→        </Card>
+   550→      </div>
+   551→
+   552→      {/* Team members row */}
+   553→      {project.team && project.team.members.length > 0 && (
+   554→        <div className="flex items-center gap-3">
+   555→          <Users className="size-4 text-muted-foreground" />
+   556→          <span className="text-sm font-medium">{project.team.name}</span>
+   557→          <div className="flex -space-x-1.5">
+   558→            {project.team.members.slice(0, 5).map((m) => (
+   559→              <Avatar
+   560→                key={m.user.id}
+   561→                className="size-6 border border-background"
+   562→              >
+   563→                <AvatarImage src={m.user.image ?? undefined} />
+   564→                <AvatarFallback className="text-[8px]">
+   565→                  {getInitials(m.user.name)}
+   566→                </AvatarFallback>
+   567→              </Avatar>
+   568→            ))}
+   569→            {project.team._count.members > 5 && (
+   570→              <div className="flex size-6 items-center justify-center rounded-full border border-background bg-muted text-[8px] font-medium">
+   571→                +{project.team._count.members - 5}
+   572→              </div>
+   573→            )}
+   574→          </div>
+   575→          <Badge variant="secondary" className="text-[10px] font-normal">
+   576→            {project.team._count.members} member
+   577→            {project.team._count.members !== 1 ? "s" : ""}
+   578→          </Badge>
+   579→        </div>
+   580→      )}
+   581→
+   582→      <Separator />
+   583→
+   584→      {/* View toggle + task content */}
+   585→      <div className="space-y-4">
+   586→        <div className="flex items-center justify-between">
+   587→          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+   588→            Tasks
+   589→          </h2>
+   590→          <div className="flex items-center gap-1 border rounded-md p-0.5">
+   591→            <Button
+   592→              variant={taskViewMode === "list" ? "secondary" : "ghost"}
+   593→              size="sm"
+   594→              className="h-7 gap-1.5 text-xs px-2.5"
+   595→              onClick={() => setTaskViewMode("list", selectedProjectId ?? undefined)}
+   596→            >
+   597→              <List className="size-3.5" />
+   598→              List
+   599→            </Button>
+   600→            <Button
+   601→              variant={taskViewMode === "board" ? "secondary" : "ghost"}
+   602→              size="sm"
+   603→              className="h-7 gap-1.5 text-xs px-2.5"
+   604→              onClick={() => setTaskViewMode("board", selectedProjectId ?? undefined)}
+   605→            >
+   606→              <LayoutGrid className="size-3.5" />
+   607→              Board
+   608→            </Button>
+   609→          </div>
+   610→        </div>
+   611→
+   612→        {taskViewMode === "list" ? (
+   613→          <TaskList
+   614→            projectId={selectedProjectId!}
+   615→            onTaskClick={handleTaskClick}
+   616→            onUpdated={fetchProject}
+   617→          />
+   618→        ) : (
+   619→          <KanbanBoard
+   620→            projectId={selectedProjectId!}
+   621→            onTaskClick={handleTaskClick}
+   622→            onUpdated={fetchProject}
+   623→          />
+   624→        )}
+   625→      </div>
+   626→
+   627→      {/* Task Detail Sheet */}
+   628→      <TaskDetailSheet
+   629→        taskId={selectedTaskId}
+   630→        open={sheetOpen}
+   631→        onOpenChange={handleSheetOpenChange}
+   632→        onUpdate={() => {
+   633→          fetchProject();
+   634→        }}
+   635→        onDelete={() => {
+   636→          fetchProject();
+   637→          setView("projects");
+   638→        }}
+   639→      />
+   640→
+   641→      {/* Create Task Dialog (from header button) */}
+   642→      {canCreateTask && (
+   643→        <Dialog open={createTaskOpen} onOpenChange={setCreateTaskOpen}>
+   644→          <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+   645→            <DialogHeader>
+   646→              <DialogTitle>Quick Add Task</DialogTitle>
+   647→              <DialogDescription>
+   648→                Enter a title to quickly create a task. You can edit details
+   649→                later.
+   650→              </DialogDescription>
+   651→            </DialogHeader>
+   652→            <form
+   653→              onSubmit={async (e) => {
+   654→                e.preventDefault();
+   655→                const form = e.currentTarget;
+   656→                const formData = new FormData(form);
+   657→                const title = formData.get("quick-title") as string;
+   658→                if (!title?.trim()) return;
+   659→
+   660→                try {
+   661→                  const res = await fetch(
+   662→                    `/api/projects/${selectedProjectId}/tasks`,
+   663→                    {
+   664→                      method: "POST",
+   665→                      headers: { "Content-Type": "application/json" },
+   666→                      body: JSON.stringify({ title: title.trim() }),
+   667→                    }
+   668→                  );
+   669→                  if (res.ok) {
+   670→                    toast.success("Task created");
+   671→                    setCreateTaskOpen(false);
+   672→                    fetchProject();
+   673→                  } else {
+   674→                    const data = await res.json();
+   675→                    toast.error(data.error || "Failed to create task");
+   676→                  }
+   677→                } catch {
+   678→                  toast.error("Something went wrong");
+   679→                }
+   680→              }}
+   681→            >
+   682→              <Input
+   683→                name="quick-title"
+   684→                placeholder="Task title..."
+   685→                maxLength={200}
+   686→                autoFocus
+   687→              />
+   688→              <DialogFooter className="mt-2">
+   689→                <Button
+   690→                  type="button"
+   691→                  variant="outline"
+   692→                  onClick={() => setCreateTaskOpen(false)}
+   693→                >
+   694→                  Cancel
+   695→                </Button>
+   696→                <Button type="submit">Create</Button>
+   697→              </DialogFooter>
+   698→            </form>
+   699→          </DialogContent>
+   700→        </Dialog>
+   701→      )}
+   702→
+   703→      {/* Edit Project Dialog */}
+   704→      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+   705→        <DialogContent className="sm:max-w-md">
+   706→          <DialogHeader>
+   707→            <DialogTitle>Edit Project</DialogTitle>
+   708→            <DialogDescription>
+   709→              Update your project details.
+   710→            </DialogDescription>
+   711→          </DialogHeader>
+   712→          <form onSubmit={handleUpdateProject} className="space-y-4">
+   713→            <div className="space-y-2">
+   714→              <Label htmlFor="edit-project-name">Name</Label>
+   715→              <Input
+   716→                id="edit-project-name"
+   717→                value={editName}
+   718→                onChange={(e) => setEditName(e.target.value)}
+   719→                maxLength={100}
+   720→                autoFocus
+   721→                disabled={editLoading}
+   722→              />
+   723→              <p className="text-xs text-muted-foreground text-right tabular-nums">
+   724→                {editName.length}/100
+   725→              </p>
+   726→            </div>
+   727→            <div className="space-y-2">
+   728→              <Label htmlFor="edit-project-description">
+   729→                Description{" "}
+   730→                <span className="text-muted-foreground">(optional)</span>
+   731→              </Label>
+   732→              <Textarea
+   733→                id="edit-project-description"
+   734→                value={editDescription}
+   735→                onChange={(e) => setEditDescription(e.target.value)}
+   736→                maxLength={500}
+   737→                rows={3}
+   738→                disabled={editLoading}
+   739→              />
+   740→              <p className="text-xs text-muted-foreground text-right tabular-nums">
+   741→                {editDescription.length}/500
+   742→              </p>
+   743→            </div>
+   744→            <div className="space-y-2">
+   745→              <Label>Team</Label>
+   746→              <Select
+   747→                value={editTeamId}
+   748→                onValueChange={setEditTeamId}
+   749→                disabled={editLoading}
+   750→              >
+   751→                <SelectTrigger>
+   752→                  <SelectValue placeholder="Select team" />
+   753→                </SelectTrigger>
+   754→                <SelectContent>
+   755→                  <SelectItem value="none">No team</SelectItem>
+   756→                  {teams.map((t) => (
+   757→                    <SelectItem key={t.id} value={String(t.id)}>
+   758→                      {t.name}
+   759→                    </SelectItem>
+   760→                  ))}
+   761→                </SelectContent>
+   762→              </Select>
+   763→            </div>
+   764→            <DialogFooter>
+   765→              <Button
+   766→                type="button"
+   767→                variant="outline"
+   768→                onClick={() => setEditOpen(false)}
+   769→                disabled={editLoading}
+   770→              >
+   771→                Cancel
+   772→              </Button>
+   773→              <Button
+   774→                type="submit"
+   775→                disabled={!editName.trim() || editLoading}
+   776→              >
+   777→                {editLoading && (
+   778→                  <Loader2 className="mr-2 size-4 animate-spin" />
+   779→                )}
+   780→                Save Changes
+   781→              </Button>
+   782→            </DialogFooter>
+   783→          </form>
+   784→        </DialogContent>
+   785→      </Dialog>
+   786→    </div>
+   787→  );
+   788→}

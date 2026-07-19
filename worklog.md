@@ -313,3 +313,35 @@ Stage Summary:
 - Files modified: create-task-dialog.tsx (defaultStatus prop), app-store.ts (per-project view modes), project-detail-view.tsx (onUpdated + per-project restore)
 - Lint: 0 errors, 0 warnings
 - Server: compiles clean, returns 200
+---
+Task ID: 1
+Agent: main
+Task: Build Task Detail slide-over panel with comments
+
+Work Log:
+- Read existing task-detail-sheet.tsx, task-list.tsx, kanban-board.tsx, project-detail-view.tsx, app-store.ts, API routes, badge components, create-task-dialog.tsx
+- Confirmed TaskDetailSheet props interface unchanged (taskId, open, onOpenChange, onUpdate, onDelete) — no integration changes needed
+- Verified API shape: GET /api/tasks/[id] returns { task: {..., project: {id, name}}, comments: [...] } — comments at top level, not nested
+- Completely rewrote task-detail-sheet.tsx with all spec requirements
+- Fixed comments handling: separated into own `comments` state instead of nested in task object
+- Removed unused eslint-disable directives
+- Final lint: 0 errors, 0 warnings
+- Browser testing blocked by known Turbopack sandbox instability (server dies after first compilation)
+
+Stage Summary:
+- Rewrote `/src/components/tasks/task-detail-sheet.tsx` (~1135 lines)
+- Key features implemented:
+  - Header: double-click title to edit, "Created by [name] · [time]" subtitle
+  - Status & Priority: clickable pills with Popover dropdown, optimistic updates, toast on change
+  - Description: always-visible textarea, 800ms debounced auto-save, immediate save on blur, dirty state indicator
+  - Assignee: Popover+Command searchable member selector (same UX as CreateTaskDialog)
+  - Due Date: Popover+Calendar date picker with "Clear date" option, overdue highlighting
+  - Project: read-only display of project name
+  - Creator: avatar + name + full date
+  - Comments: newest-first list, avatar+name+relative time, Cmd+Enter shortcut, loading state
+  - Footer: red "Delete task" text for OWNER/ADMIN only
+  - 404 handling: if task deleted while open → close sheet + toast
+  - Scroll within sheet (flex-col layout with overflow-y-auto)
+  - Sheet: 480px desktop, full-width mobile, Escape/click-outside to close (built-in)
+  - Loading skeleton with realistic layout
+  - No prop interface changes — backward compatible with existing integration
