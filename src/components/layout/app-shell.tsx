@@ -13,6 +13,7 @@ import { ProjectsView } from "@/components/views/projects-view";
 import { ProjectDetailView } from "@/components/views/project-detail-view";
 import { ActivityView } from "@/components/views/activity-view";
 import { DashboardView } from "@/components/views/dashboard-view";
+import { SearchDialog } from "@/components/search/search-dialog";
 
 export function AppShell() {
   const { currentView, selectedOrgId, organizations } = useAppStore();
@@ -63,6 +64,7 @@ export function AppShell() {
           <WelcomeView />
         </main>
         <Footer />
+        <SearchDialog />
       </div>
     );
   }
@@ -79,6 +81,7 @@ export function AppShell() {
           <Footer />
         </div>
       </div>
+      <SearchDialog />
     </div>
   );
 }

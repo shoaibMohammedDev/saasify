@@ -415,3 +415,41 @@ Stage Summary:
 - Component: /src/components/views/dashboard-view.tsx
 - Integration: app-shell.tsx updated with dashboard case
 - Verified: clean lint, successful compilation
+---
+Task ID: Global Search Implementation
+Agent: Main Agent
+Task: Build a Spotlight-style global search with keyboard shortcut
+
+Work Log:
+- Explored TopBar (already has search button calling setSearchOpen(true) + ⌘K badge), app-shell, store
+- Created search API route: GET /api/organizations/[id]/search
+  - Auth + org member check
+  - Min 2 chars query, case-insensitive contains
+  - 4 parallel Prisma queries (projects by name/desc, tasks by title/desc, teams by name, members by name/email)
+  - Max 5 results per group
+  - Returns { projects, tasks (with projectId), teams, members }
+- Created SearchDialog component:
+  - Uses shadcn Dialog (no padding, centered, shadow-2xl)
+  - Auto-focused search input with search icon
+  - 200ms debounced search with AbortController for stale request cancellation
+  - Grouped results with section headers (Projects/Tasks/Teams/Members) + count badges
+  - Color-coded icons per type (primary=project, sky=task, violet=team, amber=member)
+  - Keyboard navigation: ↑↓ to move selection, Enter to open, Escape to close
+  - Scroll-into-view for selected item
+  - Recent searches (localStorage, max 5, shown when dialog opens before typing)
+  - Empty states: "Start typing to search..." / "No results found for '[query]'"
+  - Footer with keyboard hints (↑↓ Navigate, ↵ Open, esc Close)
+  - Global ⌘K/Ctrl+K shortcut via useEffect on document
+  - Task navigation: selectTask + selectProject using returned projectId
+  - Member click → members view, Team click → team detail
+- Mounted SearchDialog in app-shell (both hasOrgs and no-orgs branches)
+- TopBar already had search trigger buttons (no changes needed)
+- Fixed: API now returns projectId for tasks, SearchTask interface updated, navigateTo uses projectId
+- Clean lint throughout
+
+Stage Summary:
+- API: /src/app/api/organizations/[id]/search/route.ts
+- Component: /src/components/search/search-dialog.tsx
+- Integration: app-shell.tsx (SearchDialog mounted in both branches)
+- TopBar: already had search trigger (no changes needed)
+- Verified: clean lint, successful compilation (HTTP 200)
