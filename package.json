@@ -3,7 +3,7 @@
   "version": "0.2.0",
   "private": true,
   "scripts": {
-    "dev": "DATABASE_URL=postgresql://postgres.aetpzyhzbidjpewaaejo:GUWGgftCoOKKx5HP@aws-0-ap-northeast-1.pooler.supabase.com:6543/postgres NEXTAUTH_SECRET=yKyYJemMxI2ld+OxUQn8TNIulxgN+fR3JocVBRHtC7w= next dev -p 3000 2>&1 | tee dev.log",
+    "dev": "next dev -p 3000",
     "build": "next build && cp -r .next/static .next/standalone/.next/ && cp -r public .next/standalone/",
     "start": "NODE_ENV=production bun .next/standalone/server.js 2>&1 | tee server.log",
     "lint": "eslint .",
@@ -13,6 +13,8 @@
     "db:reset": "prisma migrate reset",
     "db:supabase:push": "dotenv -e .env.local -- prisma db push",
     "db:supabase:generate": "dotenv -e .env.local -- prisma generate",
+    "db:seed": "prisma db seed",
+    "db:studio": "prisma studio",
     "dev:realtime": "cd mini-services/realtime-service && bun --hot index.ts"
   },
   "prisma": {
