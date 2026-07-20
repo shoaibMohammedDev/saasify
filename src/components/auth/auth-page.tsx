@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { signIn } from "next-auth/react";
 import { toast } from "sonner";
-import { Loader2, Zap, Rocket, ArrowRight } from "lucide-react";
+import { Loader2, Zap, Rocket, ArrowRight, ArrowLeft } from "lucide-react";
 
 import { useAppStore } from "@/stores/app-store";
 import { Button } from "@/components/ui/button";
@@ -182,7 +182,18 @@ export function AuthPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-background via-background to-muted/30 p-4">
+    <div className="relative flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-background via-background to-muted/30 p-4">
+      {/* Back to landing */}
+      <button
+        type="button"
+        onClick={() => window.location.reload()}
+        className="absolute left-4 top-4 flex items-center gap-1.5 rounded-md p-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        aria-label="Back to home"
+      >
+        <ArrowLeft className="size-4" />
+        <span className="hidden sm:inline">Back</span>
+      </button>
+
       {/* Branding */}
       <div className="mb-8 text-center">
         <div className="mb-2 inline-flex items-center gap-2">

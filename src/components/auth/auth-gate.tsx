@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { useAppStore, type OrgInfo } from "@/stores/app-store";
 import { AppShell } from "@/components/layout/app-shell";
 import { AuthPage } from "@/components/auth/auth-page";
+import { LandingView } from "@/components/landing/landing-view";
 import { WelcomeView } from "@/components/views/welcome-view";
 import { AcceptInvitationView } from "@/components/invitations/accept-invitation-view";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -26,6 +27,7 @@ export function AuthGate() {
   const inviteToken = searchParams.get("invite");
 
   const [checking, setChecking] = useState(true);
+  const [showAuth, setShowAuth] = useState(false);
 
   useEffect(() => {
     // Store invite token so it persists across login
@@ -92,7 +94,15 @@ export function AuthGate() {
   }
 
   if (!isAuthenticated) {
-    return <AuthPage />;
+    // Show landing page by default, or auth form if user clicked "Get Started"
+    if (showAuth) {
+      return <AuthPage />;
+    }
+    return (
+      <LandingView
+        onGetStarted={() => setShowAuth(true)}
+      />
+    );
   }
 
   // If authenticated but no orgs, show WelcomeView directly (no shell)

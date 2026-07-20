@@ -542,3 +542,33 @@ Stage Summary:
 - Demo login: POST /api/auth/demo-login (no auth required)
 - Demo mode: localStorage "saasify_demo_mode" flag + dismissible amber banner
 - Demo credentials: demo@acme.com / demo1234
+
+---
+Task ID: 7
+Agent: Main Agent
+Task: Add a public landing page that shows before login
+
+Work Log:
+- Created `src/components/landing/landing-view.tsx` — full landing page with:
+  - Hero section: SaaSify logo badge, large heading "The modern workspace for teams that ship", subtitle, "Get Started" (primary) + "Try Demo" (outline) CTAs, radial gradient background
+  - Features Grid: 3 cards (Multi-Tenant Architecture, Project Management, Real-Time Collaboration) with icons, responsive grid (1→2→3 cols)
+  - Tech Stack section: "Built With" heading with 6 pill badges (Next.js, TypeScript, PostgreSQL, Prisma, Tailwind CSS, Socket.IO)
+  - Footer: copyright, GitHub link, View Source link
+  - Demo login handled internally (POST /api/auth/demo-login → reload)
+- Modified `src/components/auth/auth-gate.tsx`:
+  - Added `showAuth` state (default false)
+  - When NOT authenticated: shows LandingView by default
+  - "Get Started" button → sets showAuth=true → shows AuthPage
+  - When authenticated → existing AppShell/WelcomeView flow
+- Modified `src/components/auth/auth-page.tsx`:
+  - Added "← Back" button (top-left) that reloads to return to landing
+  - Added ArrowLeft icon import
+- Updated `src/app/layout.tsx` metadata:
+  - Title: "SaaSify — Workspace Management Platform"
+  - Description: user-facing copy
+  - Open Graph tags (title, description, type, siteName)
+  - Favicon reference to /logo.svg
+
+Stage Summary:
+- Routing flow: Landing page → (Get Started) → Auth form → (login/demo) → AppShell
+- Clean lint, no TypeScript errors

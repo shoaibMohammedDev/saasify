@@ -15,9 +15,19 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "SaaSify — Multi-Tenant SaaS Platform",
+  title: "SaaSify — Workspace Management Platform",
   description:
-    "A production-ready multi-tenant SaaS workspace management platform built with Next.js, Prisma, and Supabase.",
+    "A multi-tenant SaaS platform for managing organizations, projects, and teams.",
+  openGraph: {
+    title: "SaaSify — Workspace Management Platform",
+    description:
+      "A multi-tenant SaaS platform for managing organizations, projects, and teams. Built with Next.js, TypeScript, and PostgreSQL.",
+    type: "website",
+    siteName: "SaaSify",
+  },
+  icons: {
+    icon: "/logo.svg",
+  },
 };
 
 export default function RootLayout({
