@@ -49,8 +49,6 @@ const permissionMatrix: Record<UserRole, Set<Action>> = {
     "view_projects",
   ]),
   MEMBER: new Set([
-    "create_project",
-    "edit_project",
     "create_task",
     "view_members",
     "view_activity",

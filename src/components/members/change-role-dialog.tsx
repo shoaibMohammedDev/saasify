@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { Loader2, ShieldAlert } from "lucide-react";
 import type { UserRole } from "@prisma/client";
 
+import { socketClient } from "@/lib/socket";
 import {
   Dialog,
   DialogContent,
@@ -68,6 +69,12 @@ export function ChangeRoleDialog({
         toast.error(data.error || "Failed to change role");
         return;
       }
+
+      socketClient.emitMemberUpdated({
+        orgId,
+        userId: member.userId,
+        changes: { role: selectedRole },
+      });
 
       toast.success(
         `${member.name}'s role changed to ${selectedRole}`

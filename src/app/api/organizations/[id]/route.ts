@@ -8,16 +8,7 @@ import {
   AuthError,
 } from "@/lib/auth-utils";
 import { canPerform } from "@/lib/permissions";
-
-function generateSlug(name: string): string {
-  return name
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9\s-]/g, "")
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-+|-+$/g, "");
-}
+import { logActivity } from "@/lib/activity";
 
 const updateOrgSchema = z.object({
   name: z.string().min(2).max(100).optional(),
@@ -158,14 +149,12 @@ export async function PUT(
       },
     });
 
-    await db.activityLog.create({
-      data: {
-        action: "organization.updated",
-        description: `${user.name} updated organization settings`,
-        userId: user.id,
-        orgId,
-        metadata: updateData,
-      },
+    await logActivity({
+      action: "organization.updated",
+      description: `${user.name} updated organization settings`,
+      userId: user.id,
+      orgId,
+      metadata: updateData,
     });
 
     return NextResponse.json({ organization: updated });
@@ -205,6 +194,21 @@ export async function DELETE(
         { status: 403 }
       );
     }
+
+    // Fetch org name before cascade delete removes everything
+    const org = await db.organization.findUnique({
+      where: { id: orgId },
+      select: { name: true },
+    });
+
+    // Log deletion BEFORE cascade delete removes everything
+    await logActivity({
+      action: "organization.deleted",
+      description: `Deleted organization "${org?.name ?? "Unknown"}"`,
+      userId: user.id,
+      orgId,
+      metadata: { organizationId: orgId, organizationName: org?.name },
+    });
 
     // Cascade delete will handle members, projects, tasks, activity_logs, etc.
     await db.organization.delete({

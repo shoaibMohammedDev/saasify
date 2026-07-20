@@ -27,6 +27,7 @@ import {
   type TaskUpdatedPayload,
   type TaskCreatedPayload,
   type TaskDeletedPayload,
+  type ActivityNewPayload,
 } from "@/lib/socket";
 import { TaskList } from "@/components/tasks/task-list";
 import { KanbanBoard } from "@/components/tasks/kanban-board";
@@ -304,6 +305,25 @@ export function ProjectDetailView() {
       if (res.ok) {
         toast.success(newStatus === "ACTIVE" ? "Project unarchived" : "Project archived");
         fetchProject();
+        if (selectedOrgId && user) {
+          socketClient.emitActivityNew({
+            activity: {
+              id: Date.now(),
+              action: newStatus === "ACTIVE" ? "project.unarchived" : "project.archived",
+              description: newStatus === "ACTIVE" ? `Unarchived project "${project.name}"` : `Archived project "${project.name}"`,
+              metadata: null,
+              createdAt: new Date().toISOString(),
+              userId: user.id,
+              orgId: selectedOrgId,
+              projectId: selectedProjectId!,
+              taskId: null,
+              user: { id: user.id, name: user.name, email: user.email, image: user.image ?? null },
+              project: { id: project.id, name: project.name },
+              task: null,
+            },
+            orgId: selectedOrgId,
+          });
+        }
       } else {
         const data = await res.json();
         toast.error(data.error || "Failed to update project");
@@ -706,9 +726,23 @@ export function ProjectDetailView() {
                     }
                   );
                   if (res.ok) {
+                    const data = await res.json();
                     toast.success("Task created");
                     setCreateTaskOpen(false);
                     fetchProject();
+                    if (data.task && selectedOrgId) {
+                      socketClient.emitTaskCreated({
+                        task: {
+                          id: data.task.id,
+                          title: data.task.title,
+                          status: data.task.status,
+                          priority: data.task.priority,
+                        },
+                        projectId: selectedProjectId!,
+                        orgId: selectedOrgId,
+                        userName: user?.name,
+                      });
+                    }
                   } else {
                     const data = await res.json();
                     toast.error(data.error || "Failed to create task");

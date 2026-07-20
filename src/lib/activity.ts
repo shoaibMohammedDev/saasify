@@ -1,4 +1,5 @@
 import { db } from "./db";
+import type { Prisma } from "@prisma/client";
 
 // ---------------------------------------------------------------------------
 // Activity Action Taxonomy
@@ -23,13 +24,19 @@ export interface LogActivityParams {
   metadata?: Record<string, unknown>;
 }
 
+type DbClient = Prisma.TransactionClient | typeof db;
+
 /**
  * Create an ActivityLog record. Safe to call from any API route.
  * Fails silently so that a logging failure never breaks a mutation.
  */
-export async function logActivity(params: LogActivityParams): Promise<void> {
+export async function logActivity(
+  params: LogActivityParams,
+  tx?: DbClient
+): Promise<void> {
   try {
-    await db.activityLog.create({
+    const client = tx ?? db;
+    await client.activityLog.create({
       data: {
         action: params.action,
         description: params.description,

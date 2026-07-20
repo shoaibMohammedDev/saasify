@@ -19,7 +19,9 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 
+import { useAppStore } from "@/stores/app-store";
 import { useOrgPermission } from "@/hooks/use-org-permission";
+import { socketClient } from "@/lib/socket";
 import { KanbanCard } from "./kanban-card";
 import { CreateTaskDialog } from "./create-task-dialog";
 import { Button } from "@/components/ui/button";
@@ -96,6 +98,7 @@ export function KanbanBoard({
   onTaskClick,
   onUpdated,
 }: KanbanBoardProps) {
+  const { user, selectedOrgId } = useAppStore();
   const canCreate = useOrgPermission("create_task");
 
   // ---- Data ---------------------------------------------------------------
@@ -224,6 +227,16 @@ export function KanbanBoard({
           if (!res.ok) {
             return res.json().then((d) => {
               throw new Error(d.error || "Failed to update task");
+            });
+          }
+          if (selectedOrgId && user) {
+            socketClient.emitTaskUpdated({
+              taskId,
+              projectId,
+              orgId: selectedOrgId,
+              userId: user.id,
+              changes: { status: targetStatus },
+              userName: user.name,
             });
           }
           onUpdated?.();

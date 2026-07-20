@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback } from "react";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 
-import { useAppStore } from "@/stores/app-store";
 import {
   Dialog,
   DialogContent,

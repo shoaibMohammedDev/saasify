@@ -1,7 +1,5 @@
 "use client";
 
-import { Badge } from "@/components/ui/badge";
-
 const priorityConfig: Record<
   string,
   { label: string; className: string }

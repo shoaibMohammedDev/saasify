@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
-import { Loader2, Trash2, AlertTriangle } from "lucide-react";
+import { Loader2, Trash2, AlertTriangle, X, CalendarDays } from "lucide-react";
 
 import { useAppStore } from "@/stores/app-store";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -173,6 +174,47 @@ export function SettingsView() {
     }
   }
 
+  // Pending invitations state
+  const [pendingInvitations, setPendingInvitations] = useState<
+    { id: number; email: string; role: string; createdAt: string }[]
+  >([]);
+  const [invitationsLoading, setInvitationsLoading] = useState(false);
+
+  // Fetch pending invitations
+  useEffect(() => {
+    if (!selectedOrgId) return;
+    setInvitationsLoading(true);
+    fetch(`/api/organizations/${selectedOrgId}/invitations`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (Array.isArray(data.invitations)) {
+          setPendingInvitations(data.invitations);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setInvitationsLoading(false));
+  }, [selectedOrgId]);
+
+  // Loading skeleton: org selected but not yet loaded
+  if (!currentOrg && organizations.length > 0) {
+    return (
+      <div className="mx-auto max-w-2xl space-y-6">
+        <div className="space-y-2">
+          <Skeleton className="h-8 w-48" />
+          <Skeleton className="h-4 w-72" />
+        </div>
+        <div className="space-y-4">
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-10 w-full" />
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <Skeleton className="h-24 w-full rounded-lg" />
+          <Skeleton className="h-24 w-full rounded-lg" />
+        </div>
+      </div>
+    );
+  }
+
   if (!canManage) {
     return (
       <div className="flex min-h-full items-center justify-center">
@@ -261,6 +303,82 @@ export function SettingsView() {
                 Save Changes
               </Button>
             </CardFooter>
+          </Card>
+
+          {/* Pending Invitations */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Pending Invitations</CardTitle>
+              <CardDescription>
+                Manage pending invitations sent to your workspace.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {invitationsLoading ? (
+                <div className="space-y-3">
+                  {Array.from({ length: 2 }).map((_, i) => (
+                    <div key={i} className="flex items-center justify-between rounded-lg border p-3">
+                      <div className="space-y-2">
+                        <Skeleton className="h-4 w-48" />
+                        <Skeleton className="h-3 w-24" />
+                      </div>
+                      <Skeleton className="h-8 w-8 rounded-md" />
+                    </div>
+                  ))}
+                </div>
+              ) : pendingInvitations.length === 0 ? (
+                <p className="py-4 text-center text-sm text-muted-foreground">
+                  No pending invitations.
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {pendingInvitations.map((inv) => (
+                    <div
+                      key={inv.id}
+                      className="flex items-center justify-between rounded-lg border p-3"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium">
+                          {inv.email}
+                        </p>
+                        <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                          <span className="rounded bg-secondary px-1.5 py-0.5 text-[10px] font-medium">
+                            {inv.role}
+                          </span>
+                          <CalendarDays className="size-3" />
+                          {new Date(inv.createdAt).toLocaleDateString("en-US", {
+                            month: "short",
+                            day: "numeric",
+                            year: "numeric",
+                          })}
+                        </p>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="size-8 text-muted-foreground hover:text-destructive"
+                        onClick={async () => {
+                          const res = await fetch(
+                            `/api/organizations/${selectedOrgId}/invitations/${inv.id}`,
+                            { method: "DELETE" }
+                          );
+                          if (res.ok) {
+                            setPendingInvitations((prev) =>
+                              prev.filter((i) => i.id !== inv.id)
+                            );
+                            toast.success("Invitation cancelled");
+                          } else {
+                            toast.error("Failed to cancel invitation");
+                          }
+                        }}
+                      >
+                        <X className="size-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
           </Card>
 
           {/* Stats card */}

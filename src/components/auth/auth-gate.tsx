@@ -19,7 +19,6 @@ export function AuthGate() {
     isAuthenticated,
     orgsLoaded,
     organizations,
-    selectedOrgId,
     setPendingInviteToken,
   } = useAppStore();
 

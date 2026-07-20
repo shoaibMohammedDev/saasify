@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { getRequiredUser, AuthError } from "@/lib/auth-utils";
+import { logActivity } from "@/lib/activity";
 
 function generateSlug(name: string): string {
   return name
@@ -91,15 +92,20 @@ export async function POST(request: NextRequest) {
         },
       });
 
-      await tx.activityLog.create({
-        data: {
-          action: "organization.created",
-          description: `${user.name} created the organization`,
-          userId: user.id,
-          orgId: organization.id,
-          metadata: { orgName: name, slug },
-        },
-      });
+      await logActivity({
+        action: "organization.created",
+        description: `${user.name} created the organization`,
+        userId: user.id,
+        orgId: organization.id,
+        metadata: { orgName: name, slug },
+      }, tx);
+
+      await logActivity({
+        action: "member.joined",
+        description: `${user.name} created the workspace and joined as Owner`,
+        userId: user.id,
+        orgId: organization.id,
+      }, tx);
 
       return organization;
     });

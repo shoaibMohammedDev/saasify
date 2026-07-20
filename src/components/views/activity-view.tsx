@@ -53,7 +53,7 @@ export function ActivityView() {
   // Filter options data
   const [projects, setProjects] = useState<ProjectOption[]>([]);
   const [members, setMembers] = useState<MemberOption[]>([]);
-  const [filtersLoaded, setFiltersLoaded] = useState(false);
+  const [filtersLoaded] = useState(false);
 
   // Fetch filter options
   const fetchFilters = useCallback(async () => {
@@ -77,7 +77,7 @@ export function ActivityView() {
     } catch {
       // Silently fail
     } finally {
-      setFiltersLoaded(true);
+      // Filters loaded
     }
   }, [selectedOrgId]);
 

@@ -8,6 +8,7 @@ import {
 } from "@/lib/auth-utils";
 import { canPerform } from "@/lib/permissions";
 import type { ProjectStatus } from "@prisma/client";
+import { logActivity } from "@/lib/activity";
 
 const createProjectSchema = z.object({
   name: z
@@ -105,15 +106,13 @@ export async function POST(
     });
 
     // Log activity
-    await db.activityLog.create({
-      data: {
-        action: "project.created",
-        description: `Created project "${name}"`,
-        userId: user.id,
-        orgId,
-        projectId: project.id,
-        metadata: { projectId: project.id, projectName: name, teamId },
-      },
+    await logActivity({
+      action: "project.created",
+      description: `Created project "${name}"`,
+      userId: user.id,
+      orgId,
+      projectId: project.id,
+      metadata: { projectId: project.id, projectName: name, teamId },
     });
 
     return NextResponse.json({ project }, { status: 201 });

@@ -49,27 +49,36 @@ src/
 │   │   ├── organizations/  # Org CRUD
 │   │   ├── projects/       # Project CRUD
 │   │   ├── tasks/          # Task CRUD
-│   │   ├── teams/          # Team CRUD
-│   │   └── invitations/    # Invitation system
+│   │   ├── invitations/    # Invitation system
+│   │   └── dashboard/      # Dashboard stats
 │   └── page.tsx       # Single-page app entry
 ├── components/
 │   ├── auth/          # Login, register
 │   ├── layout/        # Sidebar, topbar, footer
-│   ├── dashboard/     # Dashboard components
 │   ├── projects/      # Project components
 │   ├── tasks/         # Task + Kanban components
 │   ├── teams/         # Team components
+│   ├── members/       # Member components
+│   ├── invitations/   # Invitation components
+│   ├── activity/      # Activity feed
+│   ├── landing/       # Landing page
+│   ├── demo/          # Demo mode banner
+│   ├── search/        # Search dialog
+│   ├── organizations/ # Org switcher
 │   └── ui/            # shadcn/ui components
 ├── lib/
 │   ├── db.ts          # Prisma client
 │   ├── auth.ts        # NextAuth config
+│   ├── auth-utils.ts  # Auth helpers
 │   ├── permissions.ts # RBAC logic
 │   ├── activity.ts    # Activity logging
-│   └── socket.ts      # Socket.IO client
+│   ├── socket.ts      # Socket.IO client
+│   └── utils.ts       # Utility functions
 ├── stores/
 │   └── app-store.ts   # Zustand store
+├── hooks/             # Custom React hooks
 └── types/
-    └── index.ts       # TypeScript types
+    └── next-auth.d.ts # NextAuth type augmentation
 ```
 
 ## 🚀 Getting Started

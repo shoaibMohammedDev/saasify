@@ -103,7 +103,6 @@ class SocketClient {
     });
 
     this.socket.on("connect", () => {
-      console.log("[socket] connected:", this.socket?.id);
       // Re-join the current org if we had one
       if (this.joinedOrgId !== null) {
         this.socket!.emit("org:join", {
@@ -114,12 +113,12 @@ class SocketClient {
       }
     });
 
-    this.socket.on("disconnect", (reason) => {
-      console.log("[socket] disconnected:", reason);
+    this.socket.on("disconnect", () => {
+      // Silently handle disconnect — reconnection is automatic
     });
 
-    this.socket.on("connect_error", (err) => {
-      console.warn("[socket] connection error:", err.message);
+    this.socket.on("connect_error", () => {
+      // Silently handle connection errors — reconnection will retry
     });
 
     // Register event listeners

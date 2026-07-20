@@ -13,7 +13,9 @@ import {
   ChevronsUpDown,
 } from "lucide-react";
 
+import { useAppStore } from "@/stores/app-store";
 import { useOrgPermission } from "@/hooks/use-org-permission";
+import { socketClient } from "@/lib/socket";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -183,6 +185,7 @@ export function TaskDetailSheet({
   onUpdate,
   onDelete,
 }: TaskDetailSheetProps) {
+  const { user, selectedOrgId } = useAppStore();
   const canEdit = useOrgPermission("create_task");
   const canDelete = useOrgPermission("delete_any_task");
 
@@ -190,7 +193,6 @@ export function TaskDetailSheet({
   const [task, setTask] = useState<TaskDetail | null>(null);
   const [comments, setComments] = useState<Comment[]>([]);
   const [loading, setLoading] = useState(false);
-  const [notFound, setNotFound] = useState(false);
 
   // ---- Edit states ----
   const [editingTitle, setEditingTitle] = useState(false);
@@ -349,6 +351,16 @@ export function TaskDetailSheet({
         const data = await res.json();
         setTask(data.task);
         onUpdate?.();
+        if (selectedOrgId && user && task) {
+          socketClient.emitTaskUpdated({
+            taskId: task.id,
+            projectId: task.projectId,
+            orgId: selectedOrgId,
+            userId: user.id,
+            changes: { [field]: value },
+            userName: user.name,
+          });
+        }
       } else {
         // Revert on error
         const data = await res.json();
@@ -417,6 +429,16 @@ export function TaskDetailSheet({
       if (res.ok) {
         setDescriptionDirty(false);
         onUpdate?.();
+        if (selectedOrgId && user && task) {
+          socketClient.emitTaskUpdated({
+            taskId: task.id,
+            projectId: task.projectId,
+            orgId: selectedOrgId,
+            userId: user.id,
+            changes: { description: trimmed || null },
+            userName: user.name,
+          });
+        }
       } else {
         const data = await res.json();
         toast.error(data.error || "Failed to save description");
@@ -520,6 +542,13 @@ export function TaskDetailSheet({
       const res = await fetch(`/api/tasks/${taskId}`, { method: "DELETE" });
       if (res.ok) {
         toast.success("Task deleted");
+        if (selectedOrgId && task) {
+          socketClient.emitTaskDeleted({
+            taskId,
+            projectId: task.projectId,
+            orgId: selectedOrgId,
+          });
+        }
         onOpenChange(false);
         onDelete?.();
         onUpdate?.();
@@ -550,9 +579,27 @@ export function TaskDetailSheet({
         body: JSON.stringify({ content: commentText.trim() }),
       });
       if (res.ok) {
+        const data = await res.json();
         setCommentText("");
         fetchTask();
         onUpdate?.();
+        if (selectedOrgId && user && task) {
+          const activity = data.activity ?? {
+            id: Date.now(),
+            action: "comment.added",
+            description: `Commented on "${task.title}"`,
+            metadata: null,
+            createdAt: new Date().toISOString(),
+            userId: user.id,
+            orgId: selectedOrgId,
+            projectId: task.projectId,
+            taskId: task.id,
+            user: { id: user.id, name: user.name, email: user.email, image: user.image ?? null },
+            project: task.project ? { id: task.project.id, name: task.project.name } : null,
+            task: { id: task.id, title: task.title, status: task.status },
+          };
+          socketClient.emitActivityNew({ activity, orgId: selectedOrgId });
+        }
       } else {
         const data = await res.json();
         toast.error(data.error || "Failed to add comment");

@@ -88,7 +88,7 @@ export function KanbanCard({
       ref={!overlay ? setNodeRef : undefined}
       style={style}
       {...(overlay ? {} : { ...attributes, ...listeners })}
-      onClick={(e) => {
+      onClick={() => {
         if (!isDragging) onClick(task.id);
       }}
       className={`

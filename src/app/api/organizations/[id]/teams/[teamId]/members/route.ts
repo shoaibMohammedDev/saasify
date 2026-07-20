@@ -3,10 +3,10 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import {
   getRequiredUser,
-  requireRole,
   AuthError,
 } from "@/lib/auth-utils";
 import { canPerform } from "@/lib/permissions";
+import { logActivity } from "@/lib/activity";
 
 const addMemberSchema = z.object({
   userId: z.number().int().positive("User ID must be a positive integer"),
@@ -95,14 +95,12 @@ export async function POST(
     });
 
     // Log activity
-    await db.activityLog.create({
-      data: {
-        action: "team.member_added",
-        description: `Added ${targetUser?.name ?? "a member"} to team "${team.name}"`,
-        userId: user.id,
-        orgId,
-        metadata: { teamId, addedUserId: userId, teamName: team.name },
-      },
+    await logActivity({
+      action: "team.member_added",
+      description: `Added ${targetUser?.name ?? "a member"} to team "${team.name}"`,
+      userId: user.id,
+      orgId,
+      metadata: { teamId, addedUserId: userId, teamName: team.name },
     });
 
     return NextResponse.json({ success: true }, { status: 201 });

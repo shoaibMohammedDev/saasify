@@ -99,7 +99,7 @@ export function InviteMemberDialog({
       const appUrl =
         typeof window !== "undefined"
           ? window.location.origin
-          : "https://your-app.com";
+          : process.env.NEXT_PUBLIC_APP_URL || "";
       const link = `${appUrl}/?invite=${token}`;
       setInviteLink(link);
 

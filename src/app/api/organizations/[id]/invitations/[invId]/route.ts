@@ -6,6 +6,7 @@ import {
   AuthError,
 } from "@/lib/auth-utils";
 import { canPerform } from "@/lib/permissions";
+import { logActivity } from "@/lib/activity";
 
 // DELETE /api/organizations/[id]/invitations/[invId]
 export async function DELETE(
@@ -46,14 +47,12 @@ export async function DELETE(
       where: { id: invitation.id },
     });
 
-    await db.activityLog.create({
-      data: {
-        action: "invitation.cancelled",
-        description: `${user.name} cancelled the invitation for ${invitation.email}`,
-        userId: user.id,
-        orgId,
-        metadata: { invitationId: invitation.id, email: invitation.email },
-      },
+    await logActivity({
+      action: "invitation.cancelled",
+      description: `${user.name} cancelled the invitation for ${invitation.email}`,
+      userId: user.id,
+      orgId,
+      metadata: { invitationId: invitation.id, email: invitation.email },
     });
 
     return NextResponse.json({ success: true });

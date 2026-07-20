@@ -8,6 +8,7 @@ import {
   AuthError,
 } from "@/lib/auth-utils";
 import { canPerform } from "@/lib/permissions";
+import { logActivity } from "@/lib/activity";
 
 const updateTaskSchema = z.object({
   title: z
@@ -232,31 +233,27 @@ export async function PUT(
 
     // Log specific activity for status change
     if (data.status && data.status !== task.status) {
-      await db.activityLog.create({
-        data: {
-          action: "task.status_changed",
-          description: `Changed task "${task.title}" status from ${task.status} to ${data.status}`,
-          userId: user.id,
-          orgId,
-          projectId,
-          taskId,
-          metadata: { oldStatus: task.status, newStatus: data.status },
-        },
+      await logActivity({
+        action: "task.status_changed",
+        description: `Changed task "${task.title}" status from ${task.status} to ${data.status}`,
+        userId: user.id,
+        orgId,
+        projectId,
+        taskId,
+        metadata: { oldStatus: task.status, newStatus: data.status },
       });
     }
 
     // Log specific activity for priority change
     if (data.priority && data.priority !== task.priority) {
-      await db.activityLog.create({
-        data: {
-          action: "task.priority_changed",
-          description: `Changed task "${task.title}" priority from ${task.priority} to ${data.priority}`,
-          userId: user.id,
-          orgId,
-          projectId,
-          taskId,
-          metadata: { oldPriority: task.priority, newPriority: data.priority },
-        },
+      await logActivity({
+        action: "task.priority_changed",
+        description: `Changed task "${task.title}" priority from ${task.priority} to ${data.priority}`,
+        userId: user.id,
+        orgId,
+        projectId,
+        taskId,
+        metadata: { oldPriority: task.priority, newPriority: data.priority },
       });
     }
 
@@ -270,18 +267,16 @@ export async function PUT(
         });
         assigneeName = assignee?.name ?? null;
       }
-      await db.activityLog.create({
-        data: {
-          action: "task.assigned",
-          description: assigneeName
-            ? `Assigned task "${task.title}" to ${assigneeName}`
-            : `Unassigned task "${task.title}"`,
-          userId: user.id,
-          orgId,
-          projectId,
-          taskId,
-          metadata: { assigneeId: data.assigneeId, assigneeName },
-        },
+      await logActivity({
+        action: "task.assigned",
+        description: assigneeName
+          ? `Assigned task "${task.title}" to ${assigneeName}`
+          : `Unassigned task "${task.title}"`,
+        userId: user.id,
+        orgId,
+        projectId,
+        taskId,
+        metadata: { assigneeId: data.assigneeId, assigneeName },
       });
     }
 
@@ -291,16 +286,14 @@ export async function PUT(
       !data.priority &&
       data.assigneeId === undefined
     ) {
-      await db.activityLog.create({
-        data: {
-          action: "task.updated",
-          description: `Updated task "${task.title}"`,
-          userId: user.id,
-          orgId,
-          projectId,
-          taskId,
-          metadata: { taskId, changes: data },
-        },
+      await logActivity({
+        action: "task.updated",
+        description: `Updated task "${task.title}"`,
+        userId: user.id,
+        orgId,
+        projectId,
+        taskId,
+        metadata: { taskId, changes: data },
       });
     }
 
@@ -351,16 +344,14 @@ export async function DELETE(
     await requireRole(orgId, user.id, ["OWNER", "ADMIN"]);
 
     // Log activity before deletion (cascade handles activity logs tied to task)
-    await db.activityLog.create({
-      data: {
-        action: "task.deleted",
-        description: `Deleted task "${task.title}"`,
-        userId: user.id,
-        orgId,
-        projectId,
-        taskId,
-        metadata: { taskId, title: task.title },
-      },
+    await logActivity({
+      action: "task.deleted",
+      description: `Deleted task "${task.title}"`,
+      userId: user.id,
+      orgId,
+      projectId,
+      taskId,
+      metadata: { taskId, title: task.title },
     });
 
     // Delete task (cascade handles related activity logs)

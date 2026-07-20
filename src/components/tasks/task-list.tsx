@@ -226,7 +226,7 @@ export function TaskList({ projectId, onTaskClick, onUpdated }: TaskListProps) {
     setPage(1);
   }
 
-  function handleSort(field: SortField) {
+  function _handleSort(field: SortField) {
     if (sortBy === field) {
       setSortDir((d) => (d === "asc" ? "desc" : "asc"));
     } else {

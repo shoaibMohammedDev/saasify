@@ -7,6 +7,7 @@ import {
   AuthError,
 } from "@/lib/auth-utils";
 import { canPerform } from "@/lib/permissions";
+import { logActivity } from "@/lib/activity";
 
 const changeRoleSchema = z.object({
   role: z.enum(["ADMIN", "MEMBER"]),
@@ -108,17 +109,15 @@ export async function PUT(
       },
     });
 
-    await db.activityLog.create({
-      data: {
-        action: "member.role_changed",
-        description: `${user.name} changed ${updated.user.name}'s role from ${targetMember.role} to ${newRole}`,
-        userId: user.id,
-        orgId,
-        metadata: {
-          targetUserId,
-          previousRole: targetMember.role,
-          newRole,
-        },
+    await logActivity({
+      action: "member.role_changed",
+      description: `${user.name} changed ${updated.user.name}'s role from ${targetMember.role} to ${newRole}`,
+      userId: user.id,
+      orgId,
+      metadata: {
+        targetUserId,
+        previousRole: targetMember.role,
+        newRole,
       },
     });
 

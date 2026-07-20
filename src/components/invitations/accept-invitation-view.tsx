@@ -31,7 +31,7 @@ interface AcceptInvitationViewProps {
 }
 
 export function AcceptInvitationView({ token }: AcceptInvitationViewProps) {
-  const { user, isAuthenticated, setAuth, setOrganizations, selectOrg, setView } =
+  const { user, isAuthenticated, setOrganizations, selectOrg, setView } =
     useAppStore();
 
   const [status, setStatus] = useState<Status>("loading");

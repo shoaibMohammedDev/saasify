@@ -8,6 +8,7 @@ import {
   AuthError,
 } from "@/lib/auth-utils";
 import { canPerform } from "@/lib/permissions";
+import { logActivity } from "@/lib/activity";
 
 const inviteSchema = z.object({
   email: z.string().email("Invalid email format"),
@@ -118,14 +119,12 @@ export async function POST(
       },
     });
 
-    await db.activityLog.create({
-      data: {
-        action: "invitation.created",
-        description: `${user.name} invited ${normalizedEmail} as ${role}`,
-        userId: user.id,
-        orgId,
-        metadata: { invitationId: invitation.id, email: normalizedEmail, role },
-      },
+    await logActivity({
+      action: "invitation.created",
+      description: `${user.name} invited ${normalizedEmail} as ${role}`,
+      userId: user.id,
+      orgId,
+      metadata: { invitationId: invitation.id, email: normalizedEmail, role },
     });
 
     return NextResponse.json({ invitation }, { status: 201 });

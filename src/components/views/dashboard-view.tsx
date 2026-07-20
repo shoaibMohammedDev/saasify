@@ -11,6 +11,18 @@ import {
   Rocket,
   Plus,
   CalendarDays,
+  Pencil,
+  Trash2,
+  UserPlus,
+  UserMinus,
+  ShieldCheck,
+  FolderPlus,
+  Archive,
+  MessageSquare,
+  UserCheck,
+  ArrowUpDown,
+  LayoutGrid,
+  Activity,
 } from "lucide-react";
 import { format, isPast, isToday } from "date-fns";
 import { Bar, BarChart, XAxis, YAxis, Cell } from "recharts";
@@ -127,6 +139,35 @@ const CHART_COLORS = [
 // ---------------------------------------------------------------------------
 // Priority config
 // ---------------------------------------------------------------------------
+
+const activityIconConfig: Record<string, { icon: React.ElementType; bg: string; text: string }> = {
+  "organization.created": { icon: Plus, bg: "bg-emerald-100 dark:bg-emerald-900/30", text: "text-emerald-600 dark:text-emerald-400" },
+  "organization.updated": { icon: Pencil, bg: "bg-blue-100 dark:bg-blue-900/30", text: "text-blue-600 dark:text-blue-400" },
+  "member.joined": { icon: UserPlus, bg: "bg-violet-100 dark:bg-violet-900/30", text: "text-violet-600 dark:text-violet-400" },
+  "member.role_changed": { icon: ShieldCheck, bg: "bg-amber-100 dark:bg-amber-900/30", text: "text-amber-600 dark:text-amber-400" },
+  "member.removed": { icon: UserMinus, bg: "bg-red-100 dark:bg-red-900/30", text: "text-red-600 dark:text-red-400" },
+  "invitation.created": { icon: UserPlus, bg: "bg-sky-100 dark:bg-sky-900/30", text: "text-sky-600 dark:text-sky-400" },
+  "invitation.accepted": { icon: UserCheck, bg: "bg-emerald-100 dark:bg-emerald-900/30", text: "text-emerald-600 dark:text-emerald-400" },
+  "team.created": { icon: LayoutGrid, bg: "bg-indigo-100 dark:bg-indigo-900/30", text: "text-indigo-600 dark:text-indigo-400" },
+  "project.created": { icon: FolderPlus, bg: "bg-teal-100 dark:bg-teal-900/30", text: "text-teal-600 dark:text-teal-400" },
+  "project.updated": { icon: Pencil, bg: "bg-blue-100 dark:bg-blue-900/30", text: "text-blue-600 dark:text-blue-400" },
+  "project.status_changed": { icon: Archive, bg: "bg-amber-100 dark:bg-amber-900/30", text: "text-amber-600 dark:text-amber-400" },
+  "project.deleted": { icon: Trash2, bg: "bg-red-100 dark:bg-red-900/30", text: "text-red-600 dark:text-red-400" },
+  "task.created": { icon: Plus, bg: "bg-emerald-100 dark:bg-emerald-900/30", text: "text-emerald-600 dark:text-emerald-400" },
+  "task.updated": { icon: Pencil, bg: "bg-blue-100 dark:bg-blue-900/30", text: "text-blue-600 dark:text-blue-400" },
+  "task.status_changed": { icon: ArrowUpDown, bg: "bg-amber-100 dark:bg-amber-900/30", text: "text-amber-600 dark:text-amber-400" },
+  "task.deleted": { icon: Trash2, bg: "bg-red-100 dark:bg-red-900/30", text: "text-red-600 dark:text-red-400" },
+  "task.comment": { icon: MessageSquare, bg: "bg-sky-100 dark:bg-sky-900/30", text: "text-sky-600 dark:text-sky-400" },
+  "task.assigned": { icon: UserCheck, bg: "bg-violet-100 dark:bg-violet-900/30", text: "text-violet-600 dark:text-violet-400" },
+};
+
+function getActivityIcon(action: string) {
+  // Match exact action first, then prefix
+  if (activityIconConfig[action]) return activityIconConfig[action];
+  const prefix = action.split(".")[0];
+  const prefixKey = Object.keys(activityIconConfig).find(k => k.startsWith(prefix + "."));
+  return prefixKey ? activityIconConfig[prefixKey] : { icon: Activity, bg: "bg-secondary", text: "text-secondary-foreground" };
+}
 
 const priorityConfig: Record<
   string,
@@ -638,15 +679,6 @@ function InlineActivityList({
     );
   }
 
-  function getInitials(name: string): string {
-    return name
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 2);
-  }
-
   function formatRelativeTime(dateStr: string): string {
     const now = Date.now();
     const then = new Date(dateStr).getTime();
@@ -677,9 +709,15 @@ function InlineActivityList({
             <div key={item.id} className="relative flex gap-3 pb-6">
               {/* Left: avatar */}
               <div className="flex flex-col items-center">
-                <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-secondary text-[8px] font-medium">
-                  {getInitials(item.user.name)}
-                </div>
+                {(() => {
+                  const cfg = getActivityIcon(item.action);
+                  const Icon = cfg.icon;
+                  return (
+                    <div className={cn("flex size-7 shrink-0 items-center justify-center rounded-full", cfg.bg)}>
+                      <Icon className={cn("size-3.5", cfg.text)} />
+                    </div>
+                  );
+                })()}
                 {!isLast && <div className="w-px flex-1 bg-border" />}
               </div>
 

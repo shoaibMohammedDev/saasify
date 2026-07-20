@@ -11,8 +11,6 @@ import {
   LogOut,
   Sun,
   Moon,
-  Menu,
-  X,
 } from "lucide-react";
 import { signOut } from "next-auth/react";
 
@@ -23,7 +21,7 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 
 const navItems = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -36,8 +34,12 @@ const navItems = [
 
 function NavContent({ onNavigate }: { onNavigate?: () => void }) {
   const { theme, setTheme } = useTheme();
-  const { user, currentView, setView, clearAuth, sidebarOpen, toggleSidebar } =
+  const { user, currentView, setView, clearAuth, organizations, selectedOrgId } =
     useAppStore();
+
+  const currentOrg = organizations.find((o) => o.id === selectedOrgId);
+  const canAccessSettings =
+    currentOrg && (currentOrg.role === "OWNER" || currentOrg.role === "ADMIN");
 
   return (
     <div className="flex h-full flex-col">
@@ -51,7 +53,12 @@ function NavContent({ onNavigate }: { onNavigate?: () => void }) {
       {/* Navigation */}
       <ScrollArea className="flex-1 px-3 py-2">
         <nav className="flex flex-col gap-1">
-          {navItems.map((item) => {
+          {navItems
+            .filter((item) => {
+              if (item.id === "settings" && !canAccessSettings) return false;
+              return true;
+            })
+            .map((item) => {
             const Icon = item.icon;
             const isActive = currentView === item.id;
             return (

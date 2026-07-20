@@ -4,6 +4,8 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 
+import { useAppStore } from "@/stores/app-store";
+import { socketClient } from "@/lib/socket";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -34,6 +36,7 @@ export function RemoveMemberDialog({
   orgId,
   onMemberRemoved,
 }: RemoveMemberDialogProps) {
+  const { user } = useAppStore();
   const [deleting, setDeleting] = useState(false);
 
   async function handleRemove() {
@@ -54,6 +57,26 @@ export function RemoveMemberDialog({
         toast.error(data.error || "Failed to remove member");
         setDeleting(false);
         return;
+      }
+
+      if (user) {
+        socketClient.emitActivityNew({
+          activity: {
+            id: Date.now(),
+            action: "member.removed",
+            description: `Removed ${member.name} from the workspace`,
+            metadata: { removedMemberName: member.name, removedMemberUserId: member.userId },
+            createdAt: new Date().toISOString(),
+            userId: user.id,
+            orgId,
+            projectId: null,
+            taskId: null,
+            user: { id: user.id, name: user.name, email: user.email, image: user.image ?? null },
+            project: null,
+            task: null,
+          },
+          orgId,
+        });
       }
 
       toast.success(`${member.name} has been removed from the workspace`);

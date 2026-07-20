@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getRequiredUser, AuthError } from "@/lib/auth-utils";
+import { logActivity } from "@/lib/activity";
 
 // POST /api/invitations/[token]/accept
 // Auth required — user must be logged in
@@ -85,15 +86,20 @@ export async function POST(
         data: { acceptedAt: new Date() },
       });
 
-      await tx.activityLog.create({
-        data: {
-          action: "invitation.accepted",
-          description: `${user.name} accepted the invitation to join`,
-          userId: user.id,
-          orgId: invitation.orgId,
-          metadata: { invitationId: invitation.id, role: invitation.role },
-        },
-      });
+      await logActivity({
+        action: "member.joined",
+        description: `${user.name} joined the workspace`,
+        userId: user.id,
+        orgId: invitation.orgId,
+      }, tx);
+
+      await logActivity({
+        action: "invitation.accepted",
+        description: `${user.name} accepted the invitation to join`,
+        userId: user.id,
+        orgId: invitation.orgId,
+        metadata: { invitationId: invitation.id, role: invitation.role },
+      }, tx);
     });
 
     return NextResponse.json({

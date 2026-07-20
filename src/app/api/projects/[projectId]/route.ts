@@ -7,7 +7,7 @@ import {
   AuthError,
 } from "@/lib/auth-utils";
 import { canPerform } from "@/lib/permissions";
-import type { ProjectStatus } from "@prisma/client";
+import { logActivity } from "@/lib/activity";
 
 const updateProjectSchema = z.object({
   name: z
@@ -243,27 +243,32 @@ export async function PUT(
     });
 
     // Log activity — especially for status changes
-    if (data.status) {
-      await db.activityLog.create({
-        data: {
-          action: "project.status_changed",
-          description: `Changed project "${project.name}" status to ${data.status}`,
-          userId: user.id,
-          orgId,
-          projectId,
-          metadata: { projectId, newStatus: data.status },
-        },
+    if (data.status === "ARCHIVED") {
+      await logActivity({
+        action: "project.archived",
+        description: `Archived project "${project.name}"`,
+        userId: user.id,
+        orgId,
+        projectId,
+        metadata: { projectId, projectName: project.name },
+      });
+    } else if (data.status) {
+      await logActivity({
+        action: "project.status_changed",
+        description: `Changed project "${project.name}" status to ${data.status}`,
+        userId: user.id,
+        orgId,
+        projectId,
+        metadata: { projectId, newStatus: data.status },
       });
     } else {
-      await db.activityLog.create({
-        data: {
-          action: "project.updated",
-          description: `Updated project "${project.name}"`,
-          userId: user.id,
-          orgId,
-          projectId,
-          metadata: { projectId, changes: data },
-        },
+      await logActivity({
+        action: "project.updated",
+        description: `Updated project "${project.name}"`,
+        userId: user.id,
+        orgId,
+        projectId,
+        metadata: { projectId, changes: data },
       });
     }
 
@@ -324,14 +329,12 @@ export async function DELETE(
     await db.project.delete({ where: { id: projectId } });
 
     // Log activity
-    await db.activityLog.create({
-      data: {
-        action: "project.deleted",
-        description: `Deleted project "${project.name}"`,
-        userId: user.id,
-        orgId,
-        metadata: { projectId, projectName: project.name },
-      },
+    await logActivity({
+      action: "project.deleted",
+      description: `Deleted project "${project.name}"`,
+      userId: user.id,
+      orgId,
+      metadata: { projectId, projectName: project.name },
     });
 
     return NextResponse.json({ success: true });

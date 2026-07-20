@@ -4,10 +4,10 @@ import { db } from "@/lib/db";
 import {
   getRequiredUser,
   requireOrgMember,
-  requireRole,
   AuthError,
 } from "@/lib/auth-utils";
 import { canPerform } from "@/lib/permissions";
+import { logActivity } from "@/lib/activity";
 
 const createTeamSchema = z.object({
   name: z
@@ -75,14 +75,12 @@ export async function POST(
     });
 
     // Log activity
-    await db.activityLog.create({
-      data: {
-        action: "team.created",
-        description: `Created team "${name}"`,
-        userId: user.id,
-        orgId,
-        metadata: { teamId: team.id, teamName: name },
-      },
+    await logActivity({
+      action: "team.created",
+      description: `Created team "${name}"`,
+      userId: user.id,
+      orgId,
+      metadata: { teamId: team.id, teamName: name },
     });
 
     return NextResponse.json({ team }, { status: 201 });

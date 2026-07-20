@@ -4,10 +4,10 @@ import { db } from "@/lib/db";
 import {
   getRequiredUser,
   requireOrgMember,
-  requireRole,
   AuthError,
 } from "@/lib/auth-utils";
 import { canPerform } from "@/lib/permissions";
+import { logActivity } from "@/lib/activity";
 
 const updateTeamSchema = z.object({
   name: z
@@ -177,14 +177,12 @@ export async function PUT(
     });
 
     // Log activity
-    await db.activityLog.create({
-      data: {
-        action: "team.updated",
-        description: `Updated team "${existing.name}"`,
-        userId: user.id,
-        orgId,
-        metadata: { teamId, changes: data },
-      },
+    await logActivity({
+      action: "team.updated",
+      description: `Updated team "${existing.name}"`,
+      userId: user.id,
+      orgId,
+      metadata: { teamId, changes: data },
     });
 
     return NextResponse.json({ team });
@@ -252,14 +250,12 @@ export async function DELETE(
     await db.team.delete({ where: { id: teamId } });
 
     // Log activity
-    await db.activityLog.create({
-      data: {
-        action: "team.deleted",
-        description: `Deleted team "${existing.name}"`,
-        userId: user.id,
-        orgId,
-        metadata: { teamId, teamName: existing.name },
-      },
+    await logActivity({
+      action: "team.deleted",
+      description: `Deleted team "${existing.name}"`,
+      userId: user.id,
+      orgId,
+      metadata: { teamId, teamName: existing.name },
     });
 
     return NextResponse.json({ success: true });

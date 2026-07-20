@@ -2,10 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import {
   getRequiredUser,
-  requireRole,
   AuthError,
 } from "@/lib/auth-utils";
 import { canPerform } from "@/lib/permissions";
+import { logActivity } from "@/lib/activity";
 
 // DELETE /api/organizations/[id]/teams/[teamId]/members/[userId] — Remove member from team
 export async function DELETE(
@@ -68,14 +68,12 @@ export async function DELETE(
     });
 
     // Log activity
-    await db.activityLog.create({
-      data: {
-        action: "team.member_removed",
-        description: `Removed ${targetUser?.name ?? "a member"} from team "${team.name}"`,
-        userId: user.id,
-        orgId,
-        metadata: { teamId, removedUserId: userId, teamName: team.name },
-      },
+    await logActivity({
+      action: "team.member_removed",
+      description: `Removed ${targetUser?.name ?? "a member"} from team "${team.name}"`,
+      userId: user.id,
+      orgId,
+      metadata: { teamId, removedUserId: userId, teamName: team.name },
     });
 
     return NextResponse.json({ success: true });

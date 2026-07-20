@@ -107,7 +107,7 @@ model Team {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  org      Organization  @relation(fields: [orgId], references: [id])
+  org      Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade)
   members  TeamMember[]
   projects Project[]
 
@@ -139,7 +139,7 @@ model Project {
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
 
-  org          Organization  @relation(fields: [orgId], references: [id])
+  org          Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade)
   team         Team?         @relation(fields: [teamId], references: [id])
   creator      User          @relation("ProjectCreator", fields: [createdBy], references: [id])
   tasks        Task[]
@@ -181,6 +181,7 @@ model ActivityLog {
   taskId      Int?
   metadata    Json?
   createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now()) @updatedAt // append-only, but field included for schema consistency
 
   user    User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   org     Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
@@ -202,8 +203,9 @@ model Invitation {
   expiresAt  DateTime
   acceptedAt DateTime?
   createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @default(now()) @updatedAt
 
-  org       Organization @relation(fields: [orgId], references: [id])
+  org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
   inviter   User         @relation("Inviter", fields: [invitedBy], references: [id])
 
   @@index([token])

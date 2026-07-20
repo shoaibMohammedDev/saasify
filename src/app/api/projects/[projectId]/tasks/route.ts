@@ -7,6 +7,7 @@ import {
   AuthError,
 } from "@/lib/auth-utils";
 import { canPerform } from "@/lib/permissions";
+import { logActivity } from "@/lib/activity";
 
 const createTaskSchema = z.object({
   title: z
@@ -126,16 +127,14 @@ export async function POST(
     });
 
     // Log activity
-    await db.activityLog.create({
-      data: {
-        action: "task.created",
-        description: `Created task "${task.title}"`,
-        userId: user.id,
-        orgId,
-        projectId,
-        taskId: task.id,
-        metadata: { taskId: task.id, title: task.title },
-      },
+    await logActivity({
+      action: "task.created",
+      description: `Created task "${task.title}"`,
+      userId: user.id,
+      orgId,
+      projectId,
+      taskId: task.id,
+      metadata: { taskId: task.id, title: task.title },
     });
 
     return NextResponse.json({ task }, { status: 201 });

@@ -6,6 +6,7 @@ import {
   AuthError,
 } from "@/lib/auth-utils";
 import { canPerform } from "@/lib/permissions";
+import { logActivity } from "@/lib/activity";
 
 // GET /api/organizations/[id]/members/[userId]
 export async function GET(
@@ -131,16 +132,14 @@ export async function DELETE(
       where: { id: targetMember.id },
     });
 
-    await db.activityLog.create({
-      data: {
-        action: "member.removed",
-        description: `${user.name} removed ${targetUser?.name ?? "a member"} from the organization`,
-        userId: user.id,
-        orgId,
-        metadata: {
-          removedUserId: targetUserId,
-          removedUserRole: targetMember.role,
-        },
+    await logActivity({
+      action: "member.removed",
+      description: `${user.name} removed ${targetUser?.name ?? "a member"} from the organization`,
+      userId: user.id,
+      orgId,
+      metadata: {
+        removedUserId: targetUserId,
+        removedUserRole: targetMember.role,
       },
     });
 
