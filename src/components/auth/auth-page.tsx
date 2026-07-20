@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { signIn } from "next-auth/react";
 import { toast } from "sonner";
-import { Loader2, Zap } from "lucide-react";
+import { Loader2, Zap, Rocket, ArrowRight } from "lucide-react";
 
 import { useAppStore } from "@/stores/app-store";
 import { Button } from "@/components/ui/button";
@@ -19,10 +19,11 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export function AuthPage() {
-  const { setAuth, setOrganizations } = useAppStore();
+  const { setAuth, setOrganizations, selectOrg } = useAppStore();
 
   const [loginLoading, setLoginLoading] = useState(false);
   const [registerLoading, setRegisterLoading] = useState(false);
+  const [demoLoading, setDemoLoading] = useState(false);
 
   // Login form
   const [loginEmail, setLoginEmail] = useState("");
@@ -33,6 +34,39 @@ export function AuthPage() {
   const [regEmail, setRegEmail] = useState("");
   const [regPassword, setRegPassword] = useState("");
   const [regConfirm, setRegConfirm] = useState("");
+
+  // ---- Shared: fetch session + set auth state ----
+  async function finalizeAuth() {
+    const sessionRes = await fetch("/api/auth/session");
+    if (sessionRes.ok) {
+      const session = await sessionRes.json();
+      if (session?.user?.id) {
+        setAuth(
+          {
+            id: session.user.id,
+            name: session.user.name ?? "",
+            email: session.user.email ?? "",
+            image: session.user.image,
+          },
+          true
+        );
+
+        // Fetch organizations
+        const orgsRes = await fetch("/api/organizations");
+        if (orgsRes.ok) {
+          const orgsData = await orgsRes.json();
+          const orgs = orgsData.organizations;
+          setOrganizations(orgs);
+          if (orgs.length > 0) {
+            selectOrg(orgs[0].id);
+          }
+        }
+
+        return session.user;
+      }
+    }
+    return null;
+  }
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
@@ -50,22 +84,9 @@ export function AuthPage() {
         return;
       }
 
-      // Fetch session to get user data
-      const sessionRes = await fetch("/api/auth/session");
-      if (sessionRes.ok) {
-        const session = await sessionRes.json();
-        if (session?.user?.id) {
-          setAuth(
-            {
-              id: session.user.id,
-              name: session.user.name ?? "",
-              email: session.user.email ?? "",
-              image: session.user.image,
-            },
-            true
-          );
-          toast.success(`Welcome back, ${session.user.name}`);
-        }
+      const user = await finalizeAuth();
+      if (user) {
+        toast.success(`Welcome back, ${user.name}`);
       }
     } catch {
       toast.error("Something went wrong. Please try again.");
@@ -123,21 +144,7 @@ export function AuthPage() {
       });
 
       if (loginRes?.ok) {
-        const sessionRes = await fetch("/api/auth/session");
-        if (sessionRes.ok) {
-          const session = await sessionRes.json();
-          if (session?.user?.id) {
-            setAuth(
-              {
-                id: session.user.id,
-                name: session.user.name ?? "",
-                email: session.user.email ?? "",
-                image: session.user.image,
-              },
-              true
-            );
-          }
-        }
+        await finalizeAuth();
       }
     } catch {
       toast.error("Something went wrong. Please try again.");
@@ -147,7 +154,31 @@ export function AuthPage() {
   }
 
   async function handleDemo() {
-    toast.info("Demo mode would auto-create a sample workspace");
+    setDemoLoading(true);
+
+    try {
+      const res = await fetch("/api/auth/demo-login", { method: "POST" });
+
+      if (!res.ok) {
+        const data = await res.json();
+        toast.error(data.error || "Demo is not available right now");
+        return;
+      }
+
+      // Mark demo mode in localStorage
+      if (typeof window !== "undefined") {
+        localStorage.setItem("saasify_demo_mode", "true");
+      }
+
+      const user = await finalizeAuth();
+      if (user) {
+        toast.success("Welcome to the Demo!");
+      }
+    } catch {
+      toast.error("Something went wrong. Please try again.");
+    } finally {
+      setDemoLoading(false);
+    }
   }
 
   return (
@@ -190,7 +221,7 @@ export function AuthPage() {
                     value={loginEmail}
                     onChange={(e) => setLoginEmail(e.target.value)}
                     required
-                    disabled={loginLoading}
+                    disabled={loginLoading || demoLoading}
                   />
                 </div>
                 <div className="space-y-2">
@@ -202,7 +233,7 @@ export function AuthPage() {
                     value={loginPassword}
                     onChange={(e) => setLoginPassword(e.target.value)}
                     required
-                    disabled={loginLoading}
+                    disabled={loginLoading || demoLoading}
                   />
                 </div>
               </CardContent>
@@ -210,21 +241,12 @@ export function AuthPage() {
                 <Button
                   type="submit"
                   className="w-full"
-                  disabled={loginLoading}
+                  disabled={loginLoading || demoLoading}
                 >
                   {loginLoading && (
                     <Loader2 className="size-4 animate-spin" />
                   )}
                   Sign In
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="w-full gap-2"
-                  onClick={handleDemo}
-                >
-                  <Zap className="size-4" />
-                  Try Demo
                 </Button>
               </CardFooter>
             </form>
@@ -249,7 +271,7 @@ export function AuthPage() {
                     value={regName}
                     onChange={(e) => setRegName(e.target.value)}
                     required
-                    disabled={registerLoading}
+                    disabled={registerLoading || demoLoading}
                   />
                 </div>
                 <div className="space-y-2">
@@ -261,7 +283,7 @@ export function AuthPage() {
                     value={regEmail}
                     onChange={(e) => setRegEmail(e.target.value)}
                     required
-                    disabled={registerLoading}
+                    disabled={registerLoading || demoLoading}
                   />
                 </div>
                 <div className="space-y-2">
@@ -274,7 +296,7 @@ export function AuthPage() {
                     onChange={(e) => setRegPassword(e.target.value)}
                     required
                     minLength={8}
-                    disabled={registerLoading}
+                    disabled={registerLoading || demoLoading}
                   />
                 </div>
                 <div className="space-y-2">
@@ -286,7 +308,7 @@ export function AuthPage() {
                     value={regConfirm}
                     onChange={(e) => setRegConfirm(e.target.value)}
                     required
-                    disabled={registerLoading}
+                    disabled={registerLoading || demoLoading}
                   />
                 </div>
               </CardContent>
@@ -294,27 +316,46 @@ export function AuthPage() {
                 <Button
                   type="submit"
                   className="w-full"
-                  disabled={registerLoading}
+                  disabled={registerLoading || demoLoading}
                 >
                   {registerLoading && (
                     <Loader2 className="size-4 animate-spin" />
                   )}
                   Create Account
                 </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="w-full gap-2"
-                  onClick={handleDemo}
-                >
-                  <Zap className="size-4" />
-                  Try Demo
-                </Button>
               </CardFooter>
             </form>
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Demo Card — prominent call-to-action below the auth form */}
+      <button
+        type="button"
+        onClick={handleDemo}
+        disabled={demoLoading || loginLoading || registerLoading}
+        className="mt-4 w-full max-w-[400px] group relative overflow-hidden rounded-xl border border-dashed border-muted-foreground/30 bg-gradient-to-r from-amber-50 to-orange-50 p-5 text-left transition-all hover:border-amber-400/60 hover:shadow-md dark:from-amber-950/20 dark:to-orange-950/20"
+      >
+        <div className="flex items-center gap-4">
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-amber-100 text-amber-600 dark:bg-amber-900/40 dark:text-amber-400">
+            <Rocket className="size-5" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="font-semibold text-foreground">
+              {demoLoading ? "Loading demo..." : "Try the Demo"}
+            </p>
+            <p className="mt-0.5 text-sm text-muted-foreground">
+              Explore with pre-loaded data — no sign-up required
+            </p>
+          </div>
+          <ArrowRight className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-1" />
+        </div>
+        {demoLoading && (
+          <div className="absolute inset-0 flex items-center justify-center bg-background/60 backdrop-blur-sm">
+            <Loader2 className="size-5 animate-spin text-muted-foreground" />
+          </div>
+        )}
+      </button>
     </div>
   );
 }

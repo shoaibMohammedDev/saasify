@@ -128,6 +128,11 @@ function NavContent({ onNavigate }: { onNavigate?: () => void }) {
           size="sm"
           className="mt-1 w-full justify-start gap-2 text-sm font-normal text-muted-foreground hover:text-destructive"
           onClick={() => {
+            // Clear demo mode state on logout
+            if (typeof window !== "undefined") {
+              localStorage.removeItem("saasify_demo_mode");
+              localStorage.removeItem("saasify_demo_dismissed");
+            }
             clearAuth();
             signOut({ callbackUrl: "/" });
           }}

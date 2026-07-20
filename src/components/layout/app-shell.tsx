@@ -15,6 +15,7 @@ import { ProjectDetailView } from "@/components/views/project-detail-view";
 import { ActivityView } from "@/components/views/activity-view";
 import { DashboardView } from "@/components/views/dashboard-view";
 import { SearchDialog } from "@/components/search/search-dialog";
+import { DemoBanner } from "@/components/demo/demo-banner";
 
 export function AppShell() {
   const { currentView, selectedOrgId, organizations } = useAppStore();
@@ -64,6 +65,7 @@ export function AppShell() {
     return (
       <div className="flex min-h-screen flex-col bg-background text-foreground">
         <TopBar />
+        <DemoBanner />
         <main className="flex flex-1 flex-col overflow-auto p-4 md:p-6">
           <WelcomeView />
         </main>
@@ -79,6 +81,7 @@ export function AppShell() {
         <Sidebar />
         <div className="flex flex-1 flex-col">
           <TopBar />
+          <DemoBanner />
           <main className="flex-1 overflow-auto p-4 md:p-6">
             {renderView()}
           </main>

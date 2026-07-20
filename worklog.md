@@ -500,3 +500,45 @@ Stage Summary:
 - Lifecycle hook: src/hooks/use-socket-connection.ts
 - 4 views integrated: ProjectDetailView, ActivityFeed, MembersView, DashboardView
 - Start command: `bun run dev:realtime` (must run alongside `bun run dev`)
+
+---
+Task ID: 5
+Agent: Main Agent
+Task: Create comprehensive seed data and demo mode experience
+
+Work Log:
+- Created `prisma/seed.ts` — idempotent seed script with:
+  - 4 users (Demo User, Admin User, Sarah Chen, Mike Johnson) with bcrypt-hashed passwords
+  - 1 organization (Acme Agency, slug: acme-agency)
+  - 4 members (OWNER, ADMIN, 2x MEMBER)
+  - 3 teams (Engineering/Design/Marketing) with correct member assignments
+  - 4 projects (Website Redesign, Mobile App MVP, Brand Guidelines, Q4 Marketing Campaign)
+  - 29 tasks across all 4 projects with realistic status/priority/due dates (past/today/future)
+  - 28 activity logs across 7 days (member.joined, project.created, task.created, task.status_changed, task.assigned, task.updated)
+  - All upsert-based: safe to re-run without duplicates
+  - Task seeding skipped if project already has tasks
+  - Activity logs skipped if org already has any
+- Added `prisma.seed` config to package.json
+- Created `src/app/api/auth/demo-login/route.ts` — POST endpoint that:
+  - Finds demo@acme.com user from DB
+  - Creates NextAuth JWT via `encode()` from next-auth/jwt
+  - Sets httpOnly session cookie with 30-day expiry
+- Rewrote `src/components/auth/auth-page.tsx`:
+  - Extracted shared `finalizeAuth()` helper (session fetch + org load + selectOrg)
+  - `handleDemo()`: POST /api/auth/demo-login → localStorage "saasify_demo_mode" → finalizeAuth
+  - Replaced inline "Try Demo" buttons with a prominent demo card below the tabs
+  - Demo card: amber gradient background, Rocket icon, dashed border, hover effects, loading overlay
+- Created `src/components/demo/demo-banner.tsx`:
+  - Amber background banner with Info icon and dismiss button
+  - Reads localStorage "saasify_demo_mode" + "saasify_demo_dismissed"
+  - Uses requestAnimationFrame to defer setState (lint-compliant)
+  - Persists dismiss state in localStorage
+- Modified `src/components/layout/app-shell.tsx` — added DemoBanner below TopBar in both layout branches
+- Modified `src/components/layout/sidebar.tsx` — clears demo mode localStorage on logout
+- Ran seed successfully: 4 users, 3 teams, 4 projects, 29 tasks, 28 activity logs
+
+Stage Summary:
+- Seed command: `DATABASE_URL="..." bunx prisma db seed`
+- Demo login: POST /api/auth/demo-login (no auth required)
+- Demo mode: localStorage "saasify_demo_mode" flag + dismissible amber banner
+- Demo credentials: demo@acme.com / demo1234
